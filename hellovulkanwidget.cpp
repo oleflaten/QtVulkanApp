@@ -2,6 +2,7 @@
 #include <QVulkanFunctions>
 #include <QApplication>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QFileDialog>
@@ -16,7 +17,7 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
     m_info = new QPlainTextEdit;
     m_info->setReadOnly(true);
 
-    QPushButton *grabButton = new QPushButton(tr("&Grab"));
+    QPushButton *grabButton = new QPushButton(tr("&Grab frame"));
     grabButton->setFocusPolicy(Qt::NoFocus);
 
     connect(grabButton, &QPushButton::clicked, this, &MainWindow::onGrabRequested);
@@ -27,14 +28,16 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
     connect(quitButton, &QPushButton::clicked, qApp, &QCoreApplication::quit);
 
     QVBoxLayout *layout = new QVBoxLayout;
+    layout->addWidget(wrapper, 7);
     m_infoTab = new QTabWidget(this);
     m_infoTab->addTab(m_info, tr("Vulkan Info"));
     m_infoTab->addTab(logWidget, tr("Debug Log"));
     layout->addWidget(m_infoTab, 2);
-    //layout->addWidget(m_number, 1);
-    layout->addWidget(wrapper, 5);
-    layout->addWidget(grabButton, 1);
-    layout->addWidget(quitButton, 1);
+    QHBoxLayout *buttonLayout = new QHBoxLayout;
+    buttonLayout->addWidget(grabButton, 1);
+    buttonLayout->addWidget(quitButton, 1);
+    layout->addLayout(buttonLayout);
+
     setLayout(layout);
 }
 

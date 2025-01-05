@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     MainWindow mainWindow(vulkanWindow, messageLogWidget.data());
     QObject::connect(vulkanWindow, &VulkanWindow::vulkanInfoReceived, &mainWindow, &MainWindow::onVulkanInfoReceived);
 
-    mainWindow.resize(1024, 768);
+    mainWindow.resize(1024, 1024);
     mainWindow.show();
 
     return app.exec();
