@@ -81,3 +81,7 @@ release/*
 *.sln
 *.aps
 *.h.cpp
+
+/out
+CMakePresets.json
+CMakeUserPresets.json
