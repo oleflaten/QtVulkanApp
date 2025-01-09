@@ -4,7 +4,7 @@
 #include <QLibraryInfo>
 #include <QLoggingCategory>
 #include <QPointer>
-#include "hellovulkanwidget.h"
+#include "MainWindow.h"
 
 Q_LOGGING_CATEGORY(lcVk, "qt.vulkan")
 

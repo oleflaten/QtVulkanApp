@@ -1,4 +1,4 @@
-#include "hellovulkanwidget.h"
+#include "MainWindow.h"
 #include <QVulkanFunctions>
 #include <QApplication>
 #include <QVBoxLayout>
@@ -72,16 +72,16 @@ QVulkanWindowRenderer *VulkanWindow::createRenderer()
 }
 
 VulkanRenderer::VulkanRenderer(VulkanWindow *w)
-    : TriangleRenderer(w)
+    : RenderWindow(w)
 {
 }
 
 void VulkanRenderer::initResources()
 {
-    TriangleRenderer::initResources();
+    RenderWindow::initResources();
 
     QVulkanInstance *inst = m_window->vulkanInstance();
-    m_devFuncs = inst->deviceFunctions(m_window->device());
+    m_deviceFunctions = inst->deviceFunctions(m_window->device());
 
     QString info;
     info += QString::asprintf("Number of physical devices: %d\n", int(m_window->availablePhysicalDevices().count()));
@@ -124,6 +124,6 @@ void VulkanRenderer::initResources()
 
 void VulkanRenderer::startNextFrame()
 {
-    TriangleRenderer::startNextFrame();
+    RenderWindow::startNextFrame();
     emit static_cast<VulkanWindow *>(m_window)->frameQueued(int(m_rotation) % 360);
 }

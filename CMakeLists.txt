@@ -6,8 +6,8 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 qt_standard_project_setup()
 
 qt_add_executable(QtVulkanWidget
-    trianglerenderer.cpp trianglerenderer.h
-    hellovulkanwidget.cpp hellovulkanwidget.h
+    RenderWindow.cpp RenderWindow.h
+    MainWindow.cpp MainWindow.h
     main.cpp
 )
 # Define the shader files

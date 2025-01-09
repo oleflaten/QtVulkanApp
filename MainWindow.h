@@ -1,7 +1,7 @@
 #ifndef HELLOVULKANWIDGET_H
 #define HELLOVULKANWIDGET_H
 
-#include "trianglerenderer.h"
+#include "RenderWindow.h "
 #include <QWidget>
 
 QT_FORWARD_DECLARE_CLASS(QTabWidget)
@@ -26,7 +26,7 @@ private:
     QPlainTextEdit *m_info;
 };
 
-class VulkanRenderer : public TriangleRenderer
+class VulkanRenderer : public RenderWindow
 {
 public:
     VulkanRenderer(VulkanWindow *w);
