@@ -15,6 +15,7 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
 {
     QWidget *wrapper = QWidget::createWindowContainer(w);
     mLogWidget = logWidget;
+    mLogWidget->setStyleSheet("color: white ; background-color: #2f2f2f ;");
 
 
     QPushButton *grabButton = new QPushButton(tr("&Grab frame"));
