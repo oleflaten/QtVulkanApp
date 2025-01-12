@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
-project(QtVulkanWidget LANGUAGES CXX)
+project(QtVulkanApp LANGUAGES CXX)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
 
 qt_standard_project_setup()
 
-qt_add_executable(QtVulkanWidget
+qt_add_executable(QtVulkanApp
     RenderWindow.cpp RenderWindow.h
     MainWindow.cpp MainWindow.h
     main.cpp
@@ -23,12 +23,12 @@ add_custom_target(Shaders
     SOURCES ${SHADER_FILES}
 )
 
-set_target_properties(QtVulkanWidget PROPERTIES
+set_target_properties(QtVulkanApp PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
 )
 
-target_link_libraries(QtVulkanWidget PRIVATE
+target_link_libraries(QtVulkanApp PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -43,26 +43,26 @@ set_source_files_properties("color_vert.spv"
     PROPERTIES QT_RESOURCE_ALIAS "color_vert.spv"
 )
 
-set(QtVulkanWidget_resource_files
+set(QtVulkanApp_resource_files
     "color_frag.spv"
     "color_vert.spv"
 )
 
-qt_add_resources(QtVulkanWidget "QtVulkanWidget"
+qt_add_resources(QtVulkanApp "QtVulkanApp"
     PREFIX
         "/"
     FILES
-        ${QtVulkanWidget_resource_files}
+        ${QtVulkanApp_resource_files}
 )
 
-install(TARGETS QtVulkanWidget
+install(TARGETS QtVulkanApp
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 qt_generate_deploy_app_script(
-    TARGET QtVulkanWidget
+    TARGET QtVulkanApp
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
@@ -82,7 +82,7 @@ add_custom_target(
     COMMENT "Compiling vertex shader"
 )
 
-add_dependencies(QtVulkanWidget PreBuildCommandF)
-add_dependencies(QtVulkanWidget PreBuildCommandV)
+add_dependencies(QtVulkanApp PreBuildCommandF)
+add_dependencies(QtVulkanApp PreBuildCommandV)
 
 
