@@ -347,6 +347,8 @@ void RenderWindow::initResources()
         mDeviceFunctions->vkDestroyShaderModule(dev, vertShaderModule, nullptr);
     if (fragShaderModule)
         mDeviceFunctions->vkDestroyShaderModule(dev, fragShaderModule, nullptr);
+
+    getVulkanHWInfo();
 }
 
 void RenderWindow::initSwapChainResources()
@@ -357,6 +359,7 @@ void RenderWindow::initSwapChainResources()
     mProj = mWindow->clipCorrectionMatrix(); // adjust for Vulkan-OpenGL clip space differences
     const QSize sz = mWindow->swapChainImageSize();
     mProj.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
+    //mProj.scale(1.0f, -1.0f, 1.0);
     mProj.translate(0, 0, -4);
 }
 
@@ -487,4 +490,51 @@ void RenderWindow::startNextFrame()
     */
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
+
+    // qDebug("finished rendering");
+}
+
+void RenderWindow::getVulkanHWInfo()
+{
+    qDebug("\n ***************************** Vulkan Hardware Info ******************************************* \n");
+    QVulkanInstance *inst = mWindow->vulkanInstance();
+    mDeviceFunctions = inst->deviceFunctions(mWindow->device());
+
+    QString info;
+    info += QString::asprintf("Number of physical devices: %d\n", int(mWindow->availablePhysicalDevices().count()));
+
+    QVulkanFunctions *f = inst->functions();
+    VkPhysicalDeviceProperties props;
+    f->vkGetPhysicalDeviceProperties(mWindow->physicalDevice(), &props);
+    info += QString::asprintf("Active physical device name: '%s' version %d.%d.%d\nAPI version %d.%d.%d\n",
+                              props.deviceName,
+                              VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion),
+                              VK_VERSION_PATCH(props.driverVersion),
+                              VK_VERSION_MAJOR(props.apiVersion), VK_VERSION_MINOR(props.apiVersion),
+                              VK_VERSION_PATCH(props.apiVersion));
+
+    info += QStringLiteral("Supported instance layers:\n");
+    for (const QVulkanLayer &layer : inst->supportedLayers())
+        info += QString::asprintf("    %s v%u\n", layer.name.constData(), layer.version);
+    info += QStringLiteral("Enabled instance layers:\n");
+    for (const QByteArray &layer : inst->layers())
+        info += QString::asprintf("    %s\n", layer.constData());
+
+    info += QStringLiteral("Supported instance extensions:\n");
+    for (const QVulkanExtension &ext : inst->supportedExtensions())
+        info += QString::asprintf("    %s v%u\n", ext.name.constData(), ext.version);
+    info += QStringLiteral("Enabled instance extensions:\n");
+    for (const QByteArray &ext : inst->extensions())
+        info += QString::asprintf("    %s\n", ext.constData());
+
+    info += QString::asprintf("Color format: %u\nDepth-stencil format: %u\n",
+                              mWindow->colorFormat(), mWindow->depthStencilFormat());
+
+    info += QStringLiteral("Supported sample counts:");
+    const QList<int> sampleCounts = mWindow->supportedSampleCounts();
+    for (int count : sampleCounts)
+        info += QLatin1Char(' ') + QString::number(count);
+    info += QLatin1Char('\n');
+
+    qDebug(info.toUtf8().constData());
 }

@@ -9,8 +9,9 @@
 Q_LOGGING_CATEGORY(lcVk, "qt.vulkan")
 
 static QPointer<QPlainTextEdit> messageLogWidget;
-static QtMessageHandler oldMessageHandler = nullptr;
+static QtMessageHandler oldMessageHandler{ nullptr };
 
+//Logger system from Qt. Nice to print out messages directly to our program
 static void messageHandler(QtMsgType msgType, const QMessageLogContext &logContext, const QString &text)
 {
     if (!messageLogWidget.isNull())
@@ -25,7 +26,6 @@ int main(int argc, char *argv[])
 
     messageLogWidget = new QPlainTextEdit(QLatin1String(QLibraryInfo::build()) + QLatin1Char('\n'));
     messageLogWidget->setReadOnly(true);
-
     oldMessageHandler = qInstallMessageHandler(messageHandler);
 
     QLoggingCategory::setFilterRules(QStringLiteral("qt.vulkan=true"));
@@ -36,11 +36,12 @@ int main(int argc, char *argv[])
     if (!inst.create())
         qFatal("Failed to create Vulkan instance: %d", inst.errorCode());
 
+
     VulkanWindow *vulkanWindow = new VulkanWindow;
     vulkanWindow->setVulkanInstance(&inst);
 
     MainWindow mainWindow(vulkanWindow, messageLogWidget.data());
-    QObject::connect(vulkanWindow, &VulkanWindow::vulkanInfoReceived, &mainWindow, &MainWindow::onVulkanInfoReceived);
+    // QObject::connect(vulkanWindow, &VulkanWindow::vulkanInfoReceived, &mainWindow, &MainWindow::onVulkanInfoReceived);
 
     mainWindow.resize(1024, 1024);
     mainWindow.show();

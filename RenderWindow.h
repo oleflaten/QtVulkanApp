@@ -27,6 +27,9 @@ public:
     //Render the next frame
     void startNextFrame() override;
 
+    //Get Vulkan info
+    void getVulkanHWInfo();
+
 protected:
 
     //Creates the Vulkan shader module from the precompiled shader files in .spv format

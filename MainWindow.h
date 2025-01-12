@@ -18,24 +18,31 @@ public:
     explicit MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget);
 
 public slots:
-    void onVulkanInfoReceived(const QString &text);
+
     void onGrabRequested();
 
 private:
     VulkanWindow *mWindow{ nullptr };
     QTabWidget *mInfoTab{ nullptr };
     QPlainTextEdit *mInfo{ nullptr };
+    QPlainTextEdit *mLogWidget{ nullptr };
 };
 
+
+//
 class VulkanRenderer : public RenderWindow
 {
 public:
     VulkanRenderer(VulkanWindow *w);
 
     void initResources() override;
-    void startNextFrame() override;
 };
 
+
+/*The QVulkanWindow subclass reimplements the factory function QVulkanWindow::createRenderer().
+This returns a new instance of the QVulkanWindowRenderer subclass.
+In order to be able to access various Vulkan resources via the window object,
+a pointer to the window is passed and stored via the constructor.*/
 class VulkanWindow : public QVulkanWindow
 {
     Q_OBJECT
@@ -44,7 +51,6 @@ public:
     QVulkanWindowRenderer *createRenderer() override;
 
 signals:
-    void vulkanInfoReceived(const QString &text);
     void frameQueued(int colorValue);
 };
 
