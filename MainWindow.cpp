@@ -8,6 +8,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QTabWidget>
+#include "VulkanWindow.h"
 
 MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
     : mWindow(w)
@@ -15,13 +16,13 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
     QWidget *wrapper = QWidget::createWindowContainer(w);
     mLogWidget = logWidget;
 
-    mInfo = new QPlainTextEdit;
-    mInfo->setReadOnly(true);
 
     QPushButton *grabButton = new QPushButton(tr("&Grab frame"));
     grabButton->setFocusPolicy(Qt::NoFocus);
 
     connect(grabButton, &QPushButton::clicked, this, &MainWindow::onGrabRequested);
+    connect(logWidget, &QPlainTextEdit::textChanged, [logWidget]()
+        { logWidget->moveCursor(QTextCursor::End); });
 
     QPushButton *quitButton = new QPushButton(tr("&Quit"));
     quitButton->setFocusPolicy(Qt::NoFocus);
@@ -32,7 +33,6 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
     layout->addWidget(wrapper, 7);
     mInfoTab = new QTabWidget(this);
     mInfoTab->addTab(mLogWidget, tr("Debug Log"));
-    mInfoTab->addTab(mInfo, tr("Vulkan Info"));
     layout->addWidget(mInfoTab, 2);
     QHBoxLayout *buttonLayout = new QHBoxLayout;
     buttonLayout->addWidget(grabButton, 1);
@@ -60,21 +60,4 @@ void MainWindow::onGrabRequested()
     fd.selectFile("test.png");
     if (fd.exec() == QDialog::Accepted)
         img.save(fd.selectedFiles().first());
-}
-
-QVulkanWindowRenderer *VulkanWindow::createRenderer()
-{
-    return new VulkanRenderer(this);
-}
-
-VulkanRenderer::VulkanRenderer(VulkanWindow *w)
-    : RenderWindow(w)
-{
-}
-
-void VulkanRenderer::initResources()
-{
-    RenderWindow::initResources();
-
-
 }

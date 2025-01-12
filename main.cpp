@@ -5,6 +5,7 @@
 #include <QLoggingCategory>
 #include <QPointer>
 #include "MainWindow.h"
+#include "VulkanWindow.h"
 
 Q_LOGGING_CATEGORY(lcVk, "qt.vulkan")
 
@@ -41,7 +42,6 @@ int main(int argc, char *argv[])
     vulkanWindow->setVulkanInstance(&inst);
 
     MainWindow mainWindow(vulkanWindow, messageLogWidget.data());
-    // QObject::connect(vulkanWindow, &VulkanWindow::vulkanInfoReceived, &mainWindow, &MainWindow::onVulkanInfoReceived);
 
     mainWindow.resize(1024, 1024);
     mainWindow.show();
