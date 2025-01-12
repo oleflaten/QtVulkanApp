@@ -1,7 +1,6 @@
 #ifndef HELLOVULKANWIDGET_H
 #define HELLOVULKANWIDGET_H
 
-#include "RenderWindow.h "
 #include <QWidget>
 
 QT_FORWARD_DECLARE_CLASS(QTabWidget)
@@ -19,21 +18,12 @@ public:
 
 public slots:
 
-    void onGrabRequested();
+    void onScreenGrabRequested();
 
 private:
     VulkanWindow *mWindow{ nullptr };
     QTabWidget *mInfoTab{ nullptr };
     QPlainTextEdit *mLogWidget{ nullptr };
-};
-
-//
-class VulkanRenderer : public RenderWindow
-{
-public:
-    VulkanRenderer(VulkanWindow *w);
-
-    void initResources() override;
 };
 
 #endif // HELLOVULKANWIDGET_H

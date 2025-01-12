@@ -20,7 +20,7 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
     QPushButton *grabButton = new QPushButton(tr("&Grab frame"));
     grabButton->setFocusPolicy(Qt::NoFocus);
 
-    connect(grabButton, &QPushButton::clicked, this, &MainWindow::onGrabRequested);
+    connect(grabButton, &QPushButton::clicked, this, &MainWindow::onScreenGrabRequested);
     connect(logWidget, &QPlainTextEdit::textChanged, [logWidget]()
         { logWidget->moveCursor(QTextCursor::End); });
 
@@ -42,7 +42,7 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
     setLayout(layout);
 }
 
-void MainWindow::onGrabRequested()
+void MainWindow::onScreenGrabRequested()
 {
     if (!mWindow->supportsGrab()) {
         QMessageBox::warning(this, tr("Cannot grab"), tr("This swapchain does not support readbacks."));
