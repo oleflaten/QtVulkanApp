@@ -163,6 +163,7 @@ void RenderWindow::initResources()
     if (err != VK_SUCCESS)
         qFatal("Failed to create descriptor pool: %d", err);
 
+     /********************************* Uniform (projection matrix) bindings: *********************************/
     VkDescriptorSetLayoutBinding layoutBinding = {
         0, // binding
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -381,7 +382,7 @@ void RenderWindow::startNextFrame()
     VkCommandBuffer cmdBuf = mWindow->currentCommandBuffer();
     mDeviceFunctions->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    quint8* GPUmemPointer;  //for vertex and uniform data
+    quint8* GPUmemPointer;
     VkResult err = mDeviceFunctions->vkMapMemory(dev, mBufMem, mUniformBufInfo[mWindow->currentFrame()].offset,
                                                   UNIFORM_DATA_SIZE, 0, reinterpret_cast<void **>(&GPUmemPointer));
     if (err != VK_SUCCESS)
@@ -394,6 +395,7 @@ void RenderWindow::startNextFrame()
     //                  speed,   X, Y, Z axis
     /**PLAY WITH THIS**/
     tempMatrix.rotate(mRotation, 0, 1, 0);
+
     memcpy(GPUmemPointer, tempMatrix.constData(), 16 * sizeof(float));
     mDeviceFunctions->vkUnmapMemory(dev, mBufMem);
 
@@ -444,6 +446,8 @@ void RenderWindow::startNextFrame()
 
 VkShaderModule RenderWindow::createShader(const QString &name)
 {
+    //This uses Qt's own file opening and resource system
+    //We probably will replace it with pure C++ when expanding the program
     QFile file(name);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning("Failed to read shader %s", qPrintable(name));
