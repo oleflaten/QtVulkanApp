@@ -7,6 +7,7 @@
 QT_FORWARD_DECLARE_CLASS(QTabWidget)
 QT_FORWARD_DECLARE_CLASS(QPlainTextEdit)
 
+//Forward declaration
 class VulkanWindow;
 
 class MainWindow : public QWidget
@@ -21,9 +22,9 @@ public slots:
     void onGrabRequested();
 
 private:
-    VulkanWindow *m_window;
-    QTabWidget *m_infoTab;
-    QPlainTextEdit *m_info;
+    VulkanWindow *mWindow{ nullptr };
+    QTabWidget *mInfoTab{ nullptr };
+    QPlainTextEdit *mInfo{ nullptr };
 };
 
 class VulkanRenderer : public RenderWindow

@@ -10,12 +10,12 @@
 #include <QTabWidget>
 
 MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
-    : m_window(w)
+    : mWindow(w)
 {
     QWidget *wrapper = QWidget::createWindowContainer(w);
 
-    m_info = new QPlainTextEdit;
-    m_info->setReadOnly(true);
+    mInfo = new QPlainTextEdit;
+    mInfo->setReadOnly(true);
 
     QPushButton *grabButton = new QPushButton(tr("&Grab frame"));
     grabButton->setFocusPolicy(Qt::NoFocus);
@@ -29,10 +29,10 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
 
     QVBoxLayout *layout = new QVBoxLayout;
     layout->addWidget(wrapper, 7);
-    m_infoTab = new QTabWidget(this);
-    m_infoTab->addTab(m_info, tr("Vulkan Info"));
-    m_infoTab->addTab(logWidget, tr("Debug Log"));
-    layout->addWidget(m_infoTab, 2);
+    mInfoTab = new QTabWidget(this);
+    mInfoTab->addTab(mInfo, tr("Vulkan Info"));
+    mInfoTab->addTab(logWidget, tr("Debug Log"));
+    layout->addWidget(mInfoTab, 2);
     QHBoxLayout *buttonLayout = new QHBoxLayout;
     buttonLayout->addWidget(grabButton, 1);
     buttonLayout->addWidget(quitButton, 1);
@@ -43,17 +43,17 @@ MainWindow::MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget)
 
 void MainWindow::onVulkanInfoReceived(const QString &text)
 {
-    m_info->setPlainText(text);
+    mInfo->setPlainText(text);
 }
 
 void MainWindow::onGrabRequested()
 {
-    if (!m_window->supportsGrab()) {
+    if (!mWindow->supportsGrab()) {
         QMessageBox::warning(this, tr("Cannot grab"), tr("This swapchain does not support readbacks."));
         return;
     }
 
-    QImage img = m_window->grab();
+    QImage img = mWindow->grab();
 
     // Our startNextFrame() implementation is synchronous so img is ready to be
     // used right here.
@@ -80,15 +80,15 @@ void VulkanRenderer::initResources()
 {
     RenderWindow::initResources();
 
-    QVulkanInstance *inst = m_window->vulkanInstance();
-    m_deviceFunctions = inst->deviceFunctions(m_window->device());
+    QVulkanInstance *inst = mWindow->vulkanInstance();
+    mDeviceFunctions = inst->deviceFunctions(mWindow->device());
 
     QString info;
-    info += QString::asprintf("Number of physical devices: %d\n", int(m_window->availablePhysicalDevices().count()));
+    info += QString::asprintf("Number of physical devices: %d\n", int(mWindow->availablePhysicalDevices().count()));
 
     QVulkanFunctions *f = inst->functions();
     VkPhysicalDeviceProperties props;
-    f->vkGetPhysicalDeviceProperties(m_window->physicalDevice(), &props);
+    f->vkGetPhysicalDeviceProperties(mWindow->physicalDevice(), &props);
     info += QString::asprintf("Active physical device name: '%s' version %d.%d.%d\nAPI version %d.%d.%d\n",
                               props.deviceName,
                               VK_VERSION_MAJOR(props.driverVersion), VK_VERSION_MINOR(props.driverVersion),
@@ -111,19 +111,19 @@ void VulkanRenderer::initResources()
         info += QString::asprintf("    %s\n", ext.constData());
 
     info += QString::asprintf("Color format: %u\nDepth-stencil format: %u\n",
-                              m_window->colorFormat(), m_window->depthStencilFormat());
+                              mWindow->colorFormat(), mWindow->depthStencilFormat());
 
     info += QStringLiteral("Supported sample counts:");
-    const QList<int> sampleCounts = m_window->supportedSampleCounts();
+    const QList<int> sampleCounts = mWindow->supportedSampleCounts();
     for (int count : sampleCounts)
         info += QLatin1Char(' ') + QString::number(count);
     info += QLatin1Char('\n');
 
-    emit static_cast<VulkanWindow *>(m_window)->vulkanInfoReceived(info);
+    emit static_cast<VulkanWindow *>(mWindow)->vulkanInfoReceived(info);
 }
 
 void VulkanRenderer::startNextFrame()
 {
     RenderWindow::startNextFrame();
-    emit static_cast<VulkanWindow *>(m_window)->frameQueued(int(m_rotation) % 360);
+    emit static_cast<VulkanWindow *>(mWindow)->frameQueued(int(mRotation) % 360);
 }
