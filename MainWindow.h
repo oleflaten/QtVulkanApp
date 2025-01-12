@@ -14,14 +14,13 @@ class MainWindow : public QWidget
     Q_OBJECT
 
 public:
-    explicit MainWindow(VulkanWindow *w, QPlainTextEdit *logWidget);
+    explicit MainWindow(VulkanWindow *vw, QPlainTextEdit *logWidget);
 
 public slots:
-
     void onScreenGrabRequested();
 
 private:
-    VulkanWindow *mWindow{ nullptr };
+    VulkanWindow *mVulkanWindow{ nullptr };
     QTabWidget *mInfoTab{ nullptr };
     QPlainTextEdit *mLogWidget{ nullptr };
 };

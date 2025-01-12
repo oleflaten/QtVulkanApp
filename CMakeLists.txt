@@ -67,3 +67,22 @@ qt_generate_deploy_app_script(
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
 install(SCRIPT ${deploy_script})
+
+# auto-compilation of the shaders:
+add_custom_target(
+    PreBuildCommandF ALL
+    COMMAND glslc color.frag -o color_frag.spv
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Compiling fragment shader"
+)
+add_custom_target(
+    PreBuildCommandV ALL
+    COMMAND glslc color.vert -o color_vert.spv
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Compiling vertex shader"
+)
+
+add_dependencies(QtVulkanWidget PreBuildCommandF)
+add_dependencies(QtVulkanWidget PreBuildCommandV)
+
+

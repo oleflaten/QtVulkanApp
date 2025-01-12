@@ -9,15 +9,15 @@ public:
     RenderWindow(QVulkanWindow *w, bool msaa = false);
 
     //Initializes the Vulkan resources needed,
-    // for instance the buffers
+    // the buffers
     // vertex descriptions for the shaders
-    // making the shaders
+    // making the shaders, etc
     void initResources() override;
 
     //Set up resources - only MVP-matrix for now:
     void initSwapChainResources() override;
 
-    //Empty for now
+    //Empty for now - needed since we implement QVulkanWindowRenderer
     void releaseSwapChainResources() override;
 
     //Release Vulkan resources when program ends
@@ -27,7 +27,7 @@ public:
     //Render the next frame
     void startNextFrame() override;
 
-    //Get Vulkan info
+    //Get Vulkan info - just for fun
     void getVulkanHWInfo();
 
 protected:
@@ -35,7 +35,7 @@ protected:
     //Creates the Vulkan shader module from the precompiled shader files in .spv format
     VkShaderModule createShader(const QString &name);
 
-    //The MVP matrix
+    //The ModelViewProjection MVP matrix
     QMatrix4x4 mProj;
     //Rotation angle of the triangle
     float mRotation{ 0.0f };

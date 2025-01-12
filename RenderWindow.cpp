@@ -2,27 +2,31 @@
 #include <QVulkanFunctions>
 #include <QFile>
 
-// Vertex data and the projection matrix assume OpenGL's clip space.
-// Vulkan Y is negated in clip space and the near/far plane is at 0/1 instead
-// of -1/1. These will be corrected for by an extra transformation when
-// calculating the modelview-projection matrix.
+
+// Hardcoded mesh for now. Will be put in its own class soon!
+// NB 1: Vulkan's near/far plane (Z axis) is at 0/1 instead of -1/1, as in OpenGL!
+// NB 2: Vulkan Y is negated in clip space so we fix that when making the projection matrix
+// **PLAY WITH THIS**
 static float vertexData[] = {
     // Y up, front = CCW
     // X,     Y,     Z,     R,    G,    B
-    0.0f,   0.5f,  0.0f,  1.0f, 0.0f, 0.0f,
-    -0.5f,  -0.5f,  0.0f,  0.0f, 1.0f, 0.0f,
-    0.5f,  -0.5f,  0.0f,  0.0f, 0.0f, 1.0f
+    0.0f,   0.5f,  0.0f,   1.0f, 0.0f, 0.0f,    //top vertex - red
+    -0.5f,  -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    //bottom left vertex - green
+    0.5f,  -0.5f,  0.0f,   0.0f, 0.0f, 1.0f     //bottom right vertex - blue
 };
 
+//Utility variable and function for alignment:
 static const int UNIFORM_DATA_SIZE = 16 * sizeof(float);
-
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
     return (v + byteAlign - 1) & ~(byteAlign - 1);
 }
 
+
+/*** RenderWindow class ***/
+
 RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
-    : mWindow(w)
+    :  mWindow(w)
 {
     if (msaa) {
         const QList<int> counts = w->supportedSampleCounts();
@@ -37,34 +41,9 @@ RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
     }
 }
 
-VkShaderModule RenderWindow::createShader(const QString &name)
-{
-    QFile file(name);
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning("Failed to read shader %s", qPrintable(name));
-        return VK_NULL_HANDLE;
-    }
-    QByteArray blob = file.readAll();
-    file.close();
-
-    VkShaderModuleCreateInfo shaderInfo;
-    memset(&shaderInfo, 0, sizeof(shaderInfo));
-    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shaderInfo.codeSize = blob.size();
-    shaderInfo.pCode = reinterpret_cast<const uint32_t *>(blob.constData());
-    VkShaderModule shaderModule;
-    VkResult err = mDeviceFunctions->vkCreateShaderModule(mWindow->device(), &shaderInfo, nullptr, &shaderModule);
-    if (err != VK_SUCCESS) {
-        qWarning("Failed to create shader module: %d", err);
-        return VK_NULL_HANDLE;
-    }
-
-    return shaderModule;
-}
-
 void RenderWindow::initResources()
 {
-    qDebug("initResources");
+    qDebug("\n ***************************** initResources ******************************************* \n");
 
     VkDevice dev = mWindow->device();
     mDeviceFunctions = mWindow->vulkanInstance()->deviceFunctions(dev);
@@ -137,7 +116,6 @@ void RenderWindow::initResources()
     }
     mDeviceFunctions->vkUnmapMemory(dev, mBufMem);
 
-
     /********************************* Vertex layout: *********************************/
 
     //The size of each vertex to be passed to the shader
@@ -153,7 +131,7 @@ void RenderWindow::initResources()
         { // position
             0, // location has to correspond to the layout(location = x) in the shader
             0, // binding
-            VK_FORMAT_R32G32B32_SFLOAT, // updated format to include Z
+            VK_FORMAT_R32G32B32_SFLOAT,
             0
         },
         { // color
@@ -273,9 +251,9 @@ void RenderWindow::initResources()
             nullptr
         }
     };
+
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = shaderStages;
-
     pipelineInfo.pVertexInputState = &vertexInputInfo;
 
     VkPipelineInputAssemblyStateCreateInfo ia;
@@ -348,66 +326,31 @@ void RenderWindow::initResources()
     if (fragShaderModule)
         mDeviceFunctions->vkDestroyShaderModule(dev, fragShaderModule, nullptr);
 
+    qDebug("\n ***************************** initResources finished ******************************************* \n");
+
     getVulkanHWInfo();
 }
 
 void RenderWindow::initSwapChainResources()
 {
-    qDebug("initSwapChainResources");
+    qDebug("\n ***************************** initSwapChainResources ******************************************* \n");
 
-    // Projection matrix
-    mProj = mWindow->clipCorrectionMatrix(); // adjust for Vulkan-OpenGL clip space differences
+    // Projection matrix - how the scene will be projected into the render window
+
+    //This function is called at startup and when the app window is resized
+    mProj.setToIdentity();
+    //find the size of the window
     const QSize sz = mWindow->swapChainImageSize();
-    mProj.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
-    //mProj.scale(1.0f, -1.0f, 1.0);
+
+    //               vertical angle ,   aspect ratio                    near-  , far plane
+    /**PLAY WITH THIS**/
+    mProj.perspective(25.0f,          sz.width() / (float) sz.height(), 0.01f, 100.0f);
+    //Camera is -4 away from origo
+    /**PLAY WITH THIS**/
     mProj.translate(0, 0, -4);
-}
 
-void RenderWindow::releaseSwapChainResources()
-{
-    qDebug("releaseSwapChainResources");
-}
-
-void RenderWindow::releaseResources()
-{
-    qDebug("releaseResources");
-
-    VkDevice dev = mWindow->device();
-
-    if (mPipeline) {
-        mDeviceFunctions->vkDestroyPipeline(dev, mPipeline, nullptr);
-        mPipeline = VK_NULL_HANDLE;
-    }
-
-    if (mPipelineLayout) {
-        mDeviceFunctions->vkDestroyPipelineLayout(dev, mPipelineLayout, nullptr);
-        mPipelineLayout = VK_NULL_HANDLE;
-    }
-
-    if (mPipelineCache) {
-        mDeviceFunctions->vkDestroyPipelineCache(dev, mPipelineCache, nullptr);
-        mPipelineCache = VK_NULL_HANDLE;
-    }
-
-    if (mDescSetLayout) {
-        mDeviceFunctions->vkDestroyDescriptorSetLayout(dev, mDescSetLayout, nullptr);
-        mDescSetLayout = VK_NULL_HANDLE;
-    }
-
-    if (mDescPool) {
-        mDeviceFunctions->vkDestroyDescriptorPool(dev, mDescPool, nullptr);
-        mDescPool = VK_NULL_HANDLE;
-    }
-
-    if (mBuf) {
-        mDeviceFunctions->vkDestroyBuffer(dev, mBuf, nullptr);
-        mBuf = VK_NULL_HANDLE;
-    }
-
-    if (mBufMem) {
-        mDeviceFunctions->vkFreeMemory(dev, mBufMem, nullptr);
-        mBufMem = VK_NULL_HANDLE;
-    }
+    //Flip projection because of Vulkan's -Y axis
+    mProj.scale(1.0f, -1.0f, 1.0);
 }
 
 void RenderWindow::startNextFrame()
@@ -416,7 +359,8 @@ void RenderWindow::startNextFrame()
     VkCommandBuffer cb = mWindow->currentCommandBuffer();
     const QSize sz = mWindow->swapChainImageSize();
 
-    //Backtgound color of the render window - dark grey
+    //Backtgound color of the render window - dark grey -
+    /**PLAY WITH THIS**/
     VkClearColorValue clearColor = {{ 0.3, 0.3, 0.3, 1 }};
 
     VkClearDepthStencilValue clearDS = { 1, 0 };
@@ -444,12 +388,17 @@ void RenderWindow::startNextFrame()
         qFatal("Failed to map memory: %d", err);
 
     /********************************* Set the rotation in our matrix *********************************/
+    //We make a temp of this to now mess up the original matrix
     QMatrix4x4 tempMatrix = mProj;
+    //Rotates the object
+    //                  speed,   X, Y, Z axis
+    /**PLAY WITH THIS**/
     tempMatrix.rotate(mRotation, 0, 1, 0);
     memcpy(GPUmemPointer, tempMatrix.constData(), 16 * sizeof(float));
     mDeviceFunctions->vkUnmapMemory(dev, mBufMem);
 
     //rotate the triangle 1 degree per frame
+    /**PLAY WITH THIS**/
     mRotation += 1.0f;
 
     mDeviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
@@ -476,6 +425,7 @@ void RenderWindow::startNextFrame()
     mDeviceFunctions->vkCmdSetScissor(cb, 0, 1, &scissor);
 
     /********************************* Our draw call!: *********************************/
+    // the number 3 is the number of vertices, so you have to change that if you add more!
     mDeviceFunctions->vkCmdDraw(cb, 3, 1, 0, 0);
 
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
@@ -490,8 +440,31 @@ void RenderWindow::startNextFrame()
     */
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
+}
 
-    // qDebug("finished rendering");
+VkShaderModule RenderWindow::createShader(const QString &name)
+{
+    QFile file(name);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning("Failed to read shader %s", qPrintable(name));
+        return VK_NULL_HANDLE;
+    }
+    QByteArray blob = file.readAll();
+    file.close();
+
+    VkShaderModuleCreateInfo shaderInfo;
+    memset(&shaderInfo, 0, sizeof(shaderInfo));
+    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shaderInfo.codeSize = blob.size();
+    shaderInfo.pCode = reinterpret_cast<const uint32_t *>(blob.constData());
+    VkShaderModule shaderModule;
+    VkResult err = mDeviceFunctions->vkCreateShaderModule(mWindow->device(), &shaderInfo, nullptr, &shaderModule);
+    if (err != VK_SUCCESS) {
+        qWarning("Failed to create shader module: %d", err);
+        return VK_NULL_HANDLE;
+    }
+
+    return shaderModule;
 }
 
 void RenderWindow::getVulkanHWInfo()
@@ -537,4 +510,53 @@ void RenderWindow::getVulkanHWInfo()
     info += QLatin1Char('\n');
 
     qDebug(info.toUtf8().constData());
+    qDebug("\n ***************************** Vulkan Hardware Info finished ******************************************* \n");
 }
+
+void RenderWindow::releaseSwapChainResources()
+{
+    qDebug("\n ***************************** releaseSwapChainResources ******************************************* \n");
+}
+
+void RenderWindow::releaseResources()
+{
+    qDebug("\n ***************************** releaseResources ******************************************* \n");
+
+    VkDevice dev = mWindow->device();
+
+    if (mPipeline) {
+        mDeviceFunctions->vkDestroyPipeline(dev, mPipeline, nullptr);
+        mPipeline = VK_NULL_HANDLE;
+    }
+
+    if (mPipelineLayout) {
+        mDeviceFunctions->vkDestroyPipelineLayout(dev, mPipelineLayout, nullptr);
+        mPipelineLayout = VK_NULL_HANDLE;
+    }
+
+    if (mPipelineCache) {
+        mDeviceFunctions->vkDestroyPipelineCache(dev, mPipelineCache, nullptr);
+        mPipelineCache = VK_NULL_HANDLE;
+    }
+
+    if (mDescSetLayout) {
+        mDeviceFunctions->vkDestroyDescriptorSetLayout(dev, mDescSetLayout, nullptr);
+        mDescSetLayout = VK_NULL_HANDLE;
+    }
+
+    if (mDescPool) {
+        mDeviceFunctions->vkDestroyDescriptorPool(dev, mDescPool, nullptr);
+        mDescPool = VK_NULL_HANDLE;
+    }
+
+    if (mBuf) {
+        mDeviceFunctions->vkDestroyBuffer(dev, mBuf, nullptr);
+        mBuf = VK_NULL_HANDLE;
+    }
+
+    if (mBufMem) {
+        mDeviceFunctions->vkFreeMemory(dev, mBufMem, nullptr);
+        mBufMem = VK_NULL_HANDLE;
+    }
+}
+

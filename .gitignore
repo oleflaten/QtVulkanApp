@@ -85,3 +85,6 @@ release/*
 /out
 CMakePresets.json
 CMakeUserPresets.json
+
+# spir-v files, since we compile them from shader files
+*.spv
