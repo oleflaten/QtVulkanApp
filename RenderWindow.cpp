@@ -26,7 +26,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 /*** RenderWindow class ***/
 
 RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
-    :  mWindow(w)
+    :  mWindow(w), mDescSet{ nullptr }, mUniformBufInfo{ nullptr }
 {
     if (msaa) {
         const QList<int> counts = w->supportedSampleCounts();
@@ -346,24 +346,17 @@ void RenderWindow::initSwapChainResources()
     const QSize sz = mWindow->swapChainImageSize();
 
     //               vertical angle ,   aspect ratio                    near-  , far plane
-    /**PLAY WITH THIS**/
-    mProj.perspective(25.0f,          sz.width() / (float) sz.height(), 0.01f, 100.0f);
-    //Camera is -4 away from origo
-    /**PLAY WITH THIS**/
-    mProj.translate(0, 0, -4);
-
-    //Flip projection because of Vulkan's -Y axis
+    mProj.perspective(40.0f,          sz.width() / (float) sz.height(), 0.01f, 100.0f);
     mProj.scale(1.0f, -1.0f, 1.0);
 }
 
 void RenderWindow::startNextFrame()
 {
     VkDevice dev = mWindow->device();
-    VkCommandBuffer cb = mWindow->currentCommandBuffer();
+    //VkCommandBuffer cb = mWindow->currentCommandBuffer();
     const QSize sz = mWindow->swapChainImageSize();
 
-    //Backtgound color of the render window - dark grey -
-    /**PLAY WITH THIS**/
+    // Background color of the render window - dark grey -
     VkClearColorValue clearColor = {{ 0.3, 0.3, 0.3, 1 }};
 
     VkClearDepthStencilValue clearDS = { 1, 0 };
@@ -384,66 +377,79 @@ void RenderWindow::startNextFrame()
     VkCommandBuffer cmdBuf = mWindow->currentCommandBuffer();
     mDeviceFunctions->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    quint8* GPUmemPointer;
-    VkResult err = mDeviceFunctions->vkMapMemory(dev, mBufMem, mUniformBufInfo[mWindow->currentFrame()].offset,
-                                                  UNIFORM_DATA_SIZE, 0, reinterpret_cast<void **>(&GPUmemPointer));
-    if (err != VK_SUCCESS)
-        qFatal("Failed to map memory: %d", err);
-
-    /********************************* Set the rotation in our matrix *********************************/
-    //We make a temp of this to now mess up the original matrix
-    QMatrix4x4 tempMatrix = mProj;
-    //Rotates the object
-    //                  speed,   X, Y, Z axis
-    /**PLAY WITH THIS**/
-    tempMatrix.rotate(mRotation, 0, 1, 0);
-
-    memcpy(GPUmemPointer, tempMatrix.constData(), 16 * sizeof(float));
-    mDeviceFunctions->vkUnmapMemory(dev, mBufMem);
-
-    //rotate the triangle 1 degree per frame
-    /**PLAY WITH THIS**/
-    mRotation += 1.0f;
-
-    mDeviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
-    mDeviceFunctions->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1,
-                                               &mDescSet[mWindow->currentFrame()], 0, nullptr);
-    VkDeviceSize vbOffset = 0;
-
-    //The second parameter here is the binding to the VertexInputBindingDescription,
-    //so it has to be the same number used there
-    mDeviceFunctions->vkCmdBindVertexBuffers(cb, 0, 1, &mBuf, &vbOffset);
-
-    VkViewport viewport;
+    VkViewport viewport{};
     viewport.x = viewport.y = 0;
     viewport.width = sz.width();
     viewport.height = sz.height();
     viewport.minDepth = 0;
     viewport.maxDepth = 1;
-    mDeviceFunctions->vkCmdSetViewport(cb, 0, 1, &viewport);
+    mDeviceFunctions->vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 
-    VkRect2D scissor;
+    VkRect2D scissor{};
     scissor.offset.x = scissor.offset.y = 0;
     scissor.extent.width = viewport.width;
     scissor.extent.height = viewport.height;
-    mDeviceFunctions->vkCmdSetScissor(cb, 0, 1, &scissor);
+    mDeviceFunctions->vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-    /********************************* Our draw call!: *********************************/
-    // the number 3 is the number of vertices, so you have to change that if you add more!
-    mDeviceFunctions->vkCmdDraw(cb, 3, 1, 0, 0);
+    // Bind the pipeline
+    mDeviceFunctions->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
+
+    // Bind the vertex buffer
+    VkDeviceSize vbOffset = 0;
+    //The second parameter here is the binding to the VertexInputBindingDescription,
+    //so it has to be the same number used there
+    mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mBuf, &vbOffset);
+
+    // Create a view matrix to move the camera back
+    QMatrix4x4 viewMatrix;
+    viewMatrix.translate(0.0f, 0.0f, -7.0f); // Move the camera back
+
+    // First triangle model matrix
+    QMatrix4x4 modelMatrix1;
+    modelMatrix1.translate(-0.5f, 0.0f, 0.0f); // Move the first triangle to the left
+
+    // Combine the view and model matrices to form the MVP matrix
+    QMatrix4x4 mvpMatrix1 = mProj * viewMatrix * modelMatrix1;
+    updateUniformBuffer(mvpMatrix1, mWindow->currentFrame());
+
+    mDeviceFunctions->vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, &mDescSet[mWindow->currentFrame()], 0, nullptr);
+    mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+
+    // Second triangle model matrix
+    QMatrix4x4 modelMatrix2;
+    modelMatrix2.translate(mMove, 0.0f, 0.0f); // Move the second triangle to the right
+    mMove -= 0.01f;
+
+    // Combine the view and model matrices to form the MVP matrix
+    QMatrix4x4 mvpMatrix2 = mProj * viewMatrix * modelMatrix2;
+    //This updateUniforBuffer overwrites the one above, so only this triangle is shown.
+    updateUniformBuffer(mvpMatrix2, mWindow->currentFrame());
+
+    mDeviceFunctions->vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, &mDescSet[mWindow->currentFrame()], 0, nullptr);
+    mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
 
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
 
-    /*QVulkanWindow subclasses queue their draw calls in their reimplementation of
-    QVulkanWindowRenderer::startNextFrame(). Once done, they are required to call back
-    QVulkanWindow::frameReady(). The example has no asynchronous command generation, so the
-    frameReady() call is made directly from startNextFrame().
-    To get continuous updates, the example simply invokes QWindow::requestUpdate() in order to schedule a repaint.
-    This means that it requests the Qt window system to call the update() method,
-    which will eventually lead to the paintEvent() being called.
-    */
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
+}
+
+
+void RenderWindow::updateUniformBuffer(const QMatrix4x4 &modelMatrix, int currentFrame)
+{
+    VkDevice logicalDevice = mWindow->device();
+    const VkPhysicalDeviceLimits *pdevLimits = &mWindow->physicalDeviceProperties()->limits;
+	const VkDeviceSize uniAlign = mWindow->physicalDeviceProperties()->limits.minUniformBufferOffsetAlignment;
+    const VkDeviceSize vertexAllocSize = aligned(sizeof(vertexData), uniAlign);
+    const VkDeviceSize uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
+    const VkDeviceSize offset = vertexAllocSize + currentFrame * uniformAllocSize;
+
+    void* data;
+    VkResult err = mDeviceFunctions->vkMapMemory(logicalDevice, mBufMem, offset, uniformAllocSize, 0, &data);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to map memory: %d", err);
+    memcpy(data, modelMatrix.constData(), 16 * sizeof(float));
+    mDeviceFunctions->vkUnmapMemory(logicalDevice, mBufMem); // Ensure memory is unmapped
 }
 
 VkShaderModule RenderWindow::createShader(const QString &name)
