@@ -40,9 +40,6 @@ protected:
     //Rotation angle of the triangle
     float mRotation{ 0.0f };
 
-    //Test variable to move the triangle
-    float mMove{ 0.7f };
-
     //Vulkan resources:
     QVulkanWindow* mWindow{ nullptr };
     QVulkanDeviceFunctions *mDeviceFunctions{ nullptr };
@@ -58,9 +55,6 @@ protected:
     VkPipelineCache mPipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
     VkPipeline mPipeline = VK_NULL_HANDLE;
-
-private:
-    void updateUniformBuffer(const QMatrix4x4& modelMatrix, int currentFrame);
 };
 
 #endif // RENDERWINDOW_H
