@@ -1,19 +1,7 @@
 #include "RenderWindow.h"
+#include "Mesh.h"
 #include <QVulkanFunctions>
 #include <QFile>
-
-
-// Hardcoded mesh for now. Will be put in its own class soon!
-// NB 1: Vulkan's near/far plane (Z axis) is at 0/1 instead of -1/1, as in OpenGL!
-// NB 2: Vulkan Y is negated in clip space so we fix that when making the projection matrix
-// **PLAY WITH THIS**
-static float vertexData[] = {
-    // Y up, front = CCW
-    // X,     Y,     Z,     R,    G,    B
-    0.0f,   0.5f,  0.0f,   1.0f, 0.0f, 0.0f,    //top vertex - red
-    -0.5f,  -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    //bottom left vertex - green
-    0.5f,  -0.5f,  0.0f,   0.0f, 0.0f, 1.0f     //bottom right vertex - blue
-};
 
 //Utility variable and function for alignment:
 static const int UNIFORM_DATA_SIZE = 16 * sizeof(float); //our MVP matrix contains 16 floats
@@ -24,7 +12,6 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 
 
 /*** RenderWindow class ***/
-
 RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
     :  mWindow(w)
 {
@@ -47,6 +34,11 @@ void RenderWindow::initResources()
 
     VkDevice logicalDevice = mWindow->device();
     mDeviceFunctions = mWindow->vulkanInstance()->deviceFunctions(logicalDevice);
+
+    //Instance of our mesh
+    Mesh mesh;
+	//Makes it easier to access the vertex data:
+    const std::vector<float>& vertexData = mesh.getVertexData();
 
     /* Prepare the vertex and uniform data.The vertex data will never
     change so one buffer is sufficient regardless of the value of
@@ -75,7 +67,7 @@ void RenderWindow::initResources()
 
     // Our internal layout is vertex, uniform, uniform, ... with each uniform buffer 
     // start offset aligned to uniAlign.
-    const VkDeviceSize vertexAllocSize = aligned(sizeof(vertexData), uniAlign);
+    const VkDeviceSize vertexAllocSize = aligned(vertexData.size()*sizeof(float), uniAlign);
     const VkDeviceSize uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
 	bufInfo.size = vertexAllocSize + concurrentFrameCount * uniformAllocSize; //One vertex buffer and two uniform buffers
 	bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; // Set the usage to both vertex buffer and uniform buffer
@@ -106,7 +98,7 @@ void RenderWindow::initResources()
     err = mDeviceFunctions->vkMapMemory(logicalDevice, mBufMem, 0, memReq.size, 0, reinterpret_cast<void **>(&p));
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
-    memcpy(p, vertexData, sizeof(vertexData));
+    memcpy(p, vertexData.data(), vertexData.size() * sizeof(float));
     QMatrix4x4 ident;
     memset(mUniformBufInfo, 0, sizeof(mUniformBufInfo));
     for (int i = 0; i < concurrentFrameCount; ++i) {
@@ -353,6 +345,7 @@ void RenderWindow::initSwapChainResources()
     mProj.translate(0, 0, -4);
 
     //Flip projection because of Vulkan's -Y axis
+    //(Vulkan Y is negated in clip space so we fix that here)
     mProj.scale(1.0f, -1.0f, 1.0);
 }
 
@@ -391,7 +384,7 @@ void RenderWindow::startNextFrame()
         qFatal("Failed to map memory: %d", err);
 
     /********************************* Set the rotation in our matrix *********************************/
-    //We make a temp of this to now mess up the original matrix
+    //We make a temp of this to not mess up the original matrix
     QMatrix4x4 tempMatrix = mProj;
     //Rotates the object
     //                  speed,   X, Y, Z axis

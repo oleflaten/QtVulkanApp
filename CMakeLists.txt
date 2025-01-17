@@ -9,7 +9,7 @@ qt_add_executable(QtVulkanApp
     RenderWindow.cpp RenderWindow.h
     MainWindow.cpp MainWindow.h
     main.cpp
-
+    Mesh.h Mesh.cpp
     VulkanWindow.h VulkanWindow.cpp
 )
 # Define the shader files
