@@ -4,7 +4,8 @@
 #include <QFile>
 
 //Utility variable and function for alignment:
-static const int UNIFORM_DATA_SIZE = 16 * sizeof(float); //our MVP matrix contains 16 floats
+//Two times the 16 floats in our MVP matrix, since we have two uniform buffers - two objects UNIFORM_DATA_SIZE t
+static const int UNIFORM_DATA_SIZE = 2 * 16 * sizeof(float); //our MVP matrix contains 16 floats
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
     return (v + byteAlign - 1) & ~(byteAlign - 1);
@@ -37,8 +38,9 @@ void RenderWindow::initResources()
 
     //Instance of our mesh
     Mesh mesh;
-	//Makes it easier to access the vertex data:
-    const std::vector<float>& vertexData = mesh.getVertexData();
+	//Makes it easier to access the vertex data - also makes it available to other functions
+    vertexData = mesh.getVertexData();
+	vertexCount = mesh.size();
 
     /* Prepare the vertex and uniform data.The vertex data will never
     change so one buffer is sufficient regardless of the value of
@@ -383,25 +385,48 @@ void RenderWindow::startNextFrame()
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
 
+    // Assuming tempMatrix1 and tempMatrix2 are the matrices you want to push
+	QMatrix4x4 tempMatrix1; // First matrix - first object
+	QMatrix4x4 tempMatrix2; // Second matrix - second object
+
     /********************************* Set the rotation in our matrix *********************************/
     //We make a temp of this to not mess up the original matrix
-    QMatrix4x4 tempMatrix = mProj;
+    tempMatrix1 = mProj;
     //Rotates the object
     //                  speed,   X, Y, Z axis
     /**PLAY WITH THIS**/
-    tempMatrix.rotate(mRotation, 0, 1, 0);
+    tempMatrix1.rotate(mRotation, 0, 1, 0);
 
-    memcpy(GPUmemPointer, tempMatrix.constData(), 16 * sizeof(float));
-    mDeviceFunctions->vkUnmapMemory(dev, mBufMem);
-
+    memcpy(GPUmemPointer, tempMatrix1.constData(), 16 * sizeof(float));
     //rotate the triangle 1 degree per frame
     /**PLAY WITH THIS**/
     mRotation += 1.0f;
 
+    //Second mesh (second version of our triangle)
+    tempMatrix2 = mProj;
+	tempMatrix2.translate(0.5f, 0.5f, 0.0f);
+
+    const VkPhysicalDeviceLimits* pdevLimits = &mWindow->physicalDeviceProperties()->limits;
+    const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
+    // Calculate the offset for the current frame
+    const int currentFrame = mWindow->currentFrame();
+    VkDeviceSize vertexAllocSize = aligned(vertexData.size() * sizeof(float), uniAlign);
+    const VkDeviceSize uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
+    const VkDeviceSize frameOffset = vertexAllocSize + currentFrame * uniformAllocSize;
+
+    // Calculate the offset for the second matrix
+    const VkDeviceSize secondMatrixOffset = frameOffset + 16 * sizeof(float);
+    // Copy the second matrix to the second part of the uniform buffer
+    memcpy(GPUmemPointer + secondMatrixOffset, tempMatrix2.constData(), 16 * sizeof(float));
+    mDeviceFunctions->vkUnmapMemory(dev, mBufMem);
+
     mDeviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
+
     mDeviceFunctions->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1,
                                                &mDescSet[mWindow->currentFrame()], 0, nullptr);
     VkDeviceSize vbOffset = 0;
+
+
 
     //The second parameter here is the binding to the VertexInputBindingDescription,
     //so it has to be the same number used there
@@ -421,9 +446,18 @@ void RenderWindow::startNextFrame()
     scissor.extent.height = viewport.height;
     mDeviceFunctions->vkCmdSetScissor(cb, 0, 1, &scissor);
 
+
     /********************************* Our draw call!: *********************************/
-    // the number 3 is the number of vertices, so you have to change that if you add more!
-    mDeviceFunctions->vkCmdDraw(cb, 3, 1, 0, 0);
+    // Dynamic offsets for the two matrices
+    uint32_t dynamicOffsets[2] = { static_cast<uint32_t>(frameOffset), static_cast<uint32_t>(frameOffset + 16 * sizeof(float)) };
+
+    // Bind the first uniform buffer and draw the first triangle
+    mDeviceFunctions->vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, &mDescSet[mWindow->currentFrame()], 1, &dynamicOffsets[0]);
+    mDeviceFunctions->vkCmdDraw(cmdBuf, vertexCount, 1, 0, 0);
+
+    // Bind the second uniform buffer and draw the second triangle
+    mDeviceFunctions->vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, &mDescSet[mWindow->currentFrame()], 1, &dynamicOffsets[1]);
+    mDeviceFunctions->vkCmdDraw(cmdBuf, vertexCount, 1, 0, 0);
 
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
 

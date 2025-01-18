@@ -10,6 +10,7 @@ Mesh::Mesh() {
         -0.5f,  -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    // bottom left vertex - green
         0.5f,  -0.5f,  0.0f,   0.0f, 0.0f, 1.0f     // bottom right vertex - blue
     };
+	vertexCount = vertexData.size() / 6;
 }
 
 const std::vector<float>& Mesh::getVertexData() const {
