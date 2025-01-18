@@ -38,7 +38,8 @@ void RenderWindow::initResources()
     //Instance of our mesh
     Mesh mesh;
 	//Makes it easier to access the vertex data:
-    const std::vector<float>& vertexData = mesh.getVertexData();
+    vertexData = mesh.getVertexData();
+	vertexCount = mesh.size();
 
     /* Prepare the vertex and uniform data.The vertex data will never
     change so one buffer is sufficient regardless of the value of
@@ -254,7 +255,8 @@ void RenderWindow::initResources()
     VkPipelineInputAssemblyStateCreateInfo ia;
     memset(&ia, 0, sizeof(ia));
     ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    //ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    ia.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
     pipelineInfo.pInputAssemblyState = &ia;
 
     // The viewport and scissor will be set dynamically via vkCmdSetViewport/Scissor.
@@ -423,7 +425,7 @@ void RenderWindow::startNextFrame()
 
     /********************************* Our draw call!: *********************************/
     // the number 3 is the number of vertices, so you have to change that if you add more!
-    mDeviceFunctions->vkCmdDraw(cb, 3, 1, 0, 0);
+    mDeviceFunctions->vkCmdDraw(cb, vertexCount, 1, 0, 0);
 
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
 

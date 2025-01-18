@@ -55,6 +55,10 @@ protected:
     VkPipelineCache mPipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
     VkPipeline mPipeline = VK_NULL_HANDLE;
+
+private:
+    std::vector<float> vertexData;
+	int vertexCount;
 };
 
 #endif // RENDERWINDOW_H
