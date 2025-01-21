@@ -1,7 +1,7 @@
 #include "RenderWindow.h"
+#include <windows.h>
 #include <QVulkanFunctions>
 #include <QFile>
-
 
 // Hardcoded mesh for now. Will be put in its own class soon!
 // NB 1: Vulkan's near/far plane (Z axis) is at 0/1 instead of -1/1, as in OpenGL!
@@ -10,10 +10,16 @@
 static float vertexData[] = {
     // Y up, front = CCW
     // X,     Y,     Z,     R,    G,    B
-    0.0f,   0.5f,  0.0f,   1.0f, 0.0f, 0.0f,    //top vertex - red
-    -0.5f,  -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    //bottom left vertex - green
-    0.5f,  -0.5f,  0.0f,   0.0f, 0.0f, 1.0f     //bottom right vertex - blue
+    -0.5f,   0.5f,  1.0f,   1.0f, 0.0f, 0.0f,    //top vertex - red (x0.0,y0.5,z0.0)
+    -0.5f,  -0.0f,  0.0f,   0.0f, 1.0f, 0.0f,    //bottom left vertex - green (x-0.5,y-0.5,z0.0)
+    0.5f,   -0.0f,  0.0f,   0.0f, 0.0f, 1.0f,     //bottom right vertex - blue (x0.5,y-0.5,z0.0)
+
+    0.0f,   -0.5f,  0.0f,   1.0f, 0.0f, 0.0f,
+    -0.5f,  -0.0f,  0.0f,   0.0f, 1.0f, 0.0f,    //bottom left vertex - green (x-0.5,y-0.5,z0.0)
+    0.5f,   -0.0f,  0.0f,   0.0f, 0.0f, 1.0f     //bottom right vertex - blue (x0.5,y-0.5,z0.0)
 };
+
+static float rotateSpeed = 120.f;
 
 //Utility variable and function for alignment:
 static const int UNIFORM_DATA_SIZE = 16 * sizeof(float);
@@ -45,6 +51,35 @@ void RenderWindow::initResources()
 {
     qDebug("\n ***************************** initResources ******************************************* \n");
 
+    std::map<std::string, VKVertex> cubeVertices;
+
+    cubeVertices.try_emplace("front top left", VKVertex     {-0.1f,0.1f,0.1f,       0.f,1.f,1.f,0.f,0.f});
+    cubeVertices.try_emplace("front bottom left", VKVertex  {-0.1f,-0.1f,0.1f,      0.f,0.f,1.f,0.f,0.f});
+    cubeVertices.try_emplace("front bottom right", VKVertex {0.1f,-0.1f,0.1f,       1.f,0.f,1.f,0.f,0.f});
+    cubeVertices.try_emplace("front top right", VKVertex    {0.1f,0.1f,0.1f,        1.f,1.f,1.f,0.f,0.f});
+
+    cubeVertices.try_emplace("back top left", VKVertex      {-0.1f,0.1f,-0.1f,      0.f,1.f,0.f,0.f,0.f});
+    cubeVertices.try_emplace("back bottom left", VKVertex   {-0.1f,-0.1f,-0.1f,     0.f,0.f,0.f,0.f,0.f});
+    cubeVertices.try_emplace("back bottom right", VKVertex  {0.1f,-0.1f,-0.1f,      1.f,0.f,0.f,0.f,0.f});
+    cubeVertices.try_emplace("back top right", VKVertex     {0.1f,0.1f,-0.1f,       1.f,1.f,0.f,0.f,0.f});
+
+    qDebug() << mMesh.getSize() << " current size";
+
+    mMesh.addTriangle(VKTriangle{cubeVertices["front top left"], cubeVertices["front bottom left"], cubeVertices["front bottom right"]});
+    /*mMesh.addTriangle(VKTriangle{cubeVertices["front top left"], cubeVertices["front bottom right"], cubeVertices["front top right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["front top right"], cubeVertices["front bottom right"], cubeVertices["back bottom right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["front top right"], cubeVertices["back bottom right"], cubeVertices["back top right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back bottom left"], cubeVertices["back bottom right"], cubeVertices["back top right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back top left"], cubeVertices["back bottom left"], cubeVertices["back top right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back top left"], cubeVertices["back bottom left"], cubeVertices["front bottom left"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back top left"], cubeVertices["front bottom left"], cubeVertices["front top left"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back top left"], cubeVertices["front top left"], cubeVertices["front top right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back top left"], cubeVertices["front top right"], cubeVertices["back top right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back bottom left"], cubeVertices["front bottom left"], cubeVertices["front bottom right"]});
+    mMesh.addTriangle(VKTriangle{cubeVertices["back bottom left"], cubeVertices["front bottom right"], cubeVertices["back bottom right"]});*/
+
+    qDebug() << mMesh.mTriangles.size() << " current size";
+
     VkDevice dev = mWindow->device();
     mDeviceFunctions = mWindow->vulkanInstance()->deviceFunctions(dev);
 
@@ -73,7 +108,7 @@ void RenderWindow::initResources()
     bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 
     // Our internal layout is vertex, uniform, uniform, ... with each uniform buffer start offset aligned to uniAlign.
-    const VkDeviceSize vertexAllocSize = aligned(sizeof(vertexData), uniAlign);
+    VkDeviceSize vertexAllocSize = aligned(mMesh.getSize(), uniAlign);
     const VkDeviceSize uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
     bufInfo.size = vertexAllocSize + concurrentFrameCount * uniformAllocSize;
     bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
@@ -100,16 +135,24 @@ void RenderWindow::initResources()
     if (err != VK_SUCCESS)
         qFatal("Failed to bind buffer memory: %d", err);
 
-    quint8 *p;
-    err = mDeviceFunctions->vkMapMemory(dev, mBufMem, 0, memReq.size, 0, reinterpret_cast<void **>(&p));
+    quint8 *newLoc;
+    err = mDeviceFunctions->vkMapMemory(dev, mBufMem, 0, memReq.size, 0, reinterpret_cast<void **>(&newLoc));
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
-    memcpy(p, vertexData, sizeof(vertexData));
+    //memcpy(p, vertexData, sizeof(vertexData));
+    qDebug() << mMesh.getSize();
+
+    //memcpy(p, mMesh.getTriangles().data(), mMesh.getSize());
+
+    VKTriangle mTest{VKVertex{0.f,0.f,0.f,1.f,0.f,0.f,0.f,0.f}, VKVertex{1.f,0.f,0.f,0.f,1.f,0.f,0.f,0.f}, VKVertex{1.f,1.f,0.f,0.f,0.f,1.f,0.f,0.f}};
+
+    memcpy(newLoc, mTest.getVertices(), 96);
+
     QMatrix4x4 ident;
     memset(mUniformBufInfo, 0, sizeof(mUniformBufInfo));
     for (int i = 0; i < concurrentFrameCount; ++i) {
         const VkDeviceSize offset = vertexAllocSize + i * uniformAllocSize;
-        memcpy(p + offset, ident.constData(), 16 * sizeof(float));
+        memcpy(newLoc + offset, ident.constData(), 16 * sizeof(float));
         mUniformBufInfo[i].buffer = mBuf;
         mUniformBufInfo[i].offset = offset;
         mUniformBufInfo[i].range = uniformAllocSize;
@@ -121,7 +164,7 @@ void RenderWindow::initResources()
     //The size of each vertex to be passed to the shader
     VkVertexInputBindingDescription vertexBindingDesc = {
         0, // binding - has to match that in VkVertexInputAttributeDescription and startNextFrame()s m_devFuncs->vkCmdBindVertexBuffers
-        6 * sizeof(float), // stride account for X, Y, Z, R, G, B
+        sizeof(VKVertex), // stride account for X, Y, Z, R, G, B
         VK_VERTEX_INPUT_RATE_VERTEX
     };
 
@@ -348,7 +391,9 @@ void RenderWindow::initSwapChainResources()
     mProj.perspective(25.0f,          sz.width() / (float) sz.height(), 0.01f, 100.0f);
     //Camera is -4 away from origo
     /**PLAY WITH THIS**/
-    mProj.translate(0, 0, -4);
+    mProj.translate(0, -0.5f, -4);
+
+    mProj.rotate(0,-25.f,0);
 
     //Flip projection because of Vulkan's -Y axis
     mProj.scale(1.0f, -1.0f, 1.0);
@@ -399,9 +444,21 @@ void RenderWindow::startNextFrame()
     memcpy(GPUmemPointer, tempMatrix.constData(), 16 * sizeof(float));
     mDeviceFunctions->vkUnmapMemory(dev, mBufMem);
 
+    DEVMODE devMode;
+    ZeroMemory(&devMode, sizeof(devMode));
+    devMode.dmSize = sizeof(devMode);
+
+    float frequency = 1;
+
+    if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devMode))
+    {
+        frequency = devMode.dmDisplayFrequency;
+    }
+
     //rotate the triangle 1 degree per frame
+    //!!!UPDATED!!!Rotates the triangle 360 degrees per second. Stays consistent with different screen refresh rates
     /**PLAY WITH THIS**/
-    mRotation += 1.0f;
+    mRotation += (rotateSpeed * (1.0f / frequency));
 
     mDeviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
     mDeviceFunctions->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1,
@@ -428,7 +485,7 @@ void RenderWindow::startNextFrame()
 
     /********************************* Our draw call!: *********************************/
     // the number 3 is the number of vertices, so you have to change that if you add more!
-    mDeviceFunctions->vkCmdDraw(cb, 3, 1, 0, 0);
+    mDeviceFunctions->vkCmdDraw(cmdBuf, mMesh.getSize(), 1, 0, 0);
 
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
 
@@ -564,3 +621,9 @@ void RenderWindow::releaseResources()
     }
 }
 
+
+/*void RenderWindow::updateUniformBuffer(const QMatrix4x4& modelMatrix, int currentFrame)
+{
+    const VkDeviceSize vertexAllocSize = aligned(mTriangle.getVertices().size()*sizeof(VKVertex), &mWindow->physicalDeviceProperties()->limits.minUniformBufferOffsetAlignment);
+}
+*/

@@ -2,9 +2,14 @@
 #define RENDERWINDOW_H
 
 #include <QVulkanWindow>
+#include "vktrianglemesh.h"
 
 class RenderWindow : public QVulkanWindowRenderer
 {
+private:
+    void updateUniformBuffer(const QMatrix4x4& modelMatrix, int currentFrame);
+    VKTriangleMesh mMesh;
+
 public:
     RenderWindow(QVulkanWindow *w, bool msaa = false);
 
