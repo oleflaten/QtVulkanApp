@@ -15,8 +15,7 @@ static float vertexData[] = {
     0.5f,  -0.5f,  0.0f,   0.0f, 0.0f, 1.0f     //bottom right vertex - blue
 };
 
-//Utility variable and function for alignment:
-static const int UNIFORM_DATA_SIZE = 16 * sizeof(float); //our MVP matrix contains 16 floats
+//Utility function for alignment:
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
     return (v + byteAlign - 1) & ~(byteAlign - 1);
@@ -61,12 +60,11 @@ void RenderWindow::initResources()
 	memset(&bufferInfo, 0, sizeof(bufferInfo)); //Clear out the memory
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; // Set the structure type
 
-    // Our internal layout is vertex, uniform, uniform, ... with each uniform buffer 
+    // Layout is just the vertex data
     // start offset aligned to uniAlign.
     const VkDeviceSize vertexAllocSize = aligned(sizeof(vertexData), uniAlign);
-    const VkDeviceSize uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
-	bufferInfo.size = vertexAllocSize + concurrentFrameCount * uniformAllocSize; //One vertex buffer and two uniform buffers
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; // Set the usage to both vertex buffer and uniform buffer
+	bufferInfo.size = vertexAllocSize; //One vertex buffer (we don't use Uniform buffer in this example)
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT; // Set the usage vertex buffer (not using Uniform buffer in this example)
 
     VkResult err = mDeviceFunctions->vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &mBuffer);
     if (err != VK_SUCCESS)
@@ -90,20 +88,11 @@ void RenderWindow::initResources()
     if (err != VK_SUCCESS)
         qFatal("Failed to bind buffer memory: %d", err);
 
-    quint8 *p;
+    quint8* p{nullptr};
     err = mDeviceFunctions->vkMapMemory(logicalDevice, mBufferMemory, 0, memReq.size, 0, reinterpret_cast<void **>(&p));
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
     memcpy(p, vertexData, sizeof(vertexData));
-    QMatrix4x4 ident;
-    memset(mUniformBufferInfo, 0, sizeof(mUniformBufferInfo));
-    for (int i = 0; i < concurrentFrameCount; ++i) {
-        const VkDeviceSize offset = vertexAllocSize + i * uniformAllocSize;
-        memcpy(p + offset, ident.constData(), 16 * sizeof(float));
-        mUniformBufferInfo[i].buffer = mBuffer;
-        mUniformBufferInfo[i].offset = offset;
-        mUniformBufferInfo[i].range = uniformAllocSize;
-    }
     mDeviceFunctions->vkUnmapMemory(logicalDevice, mBufferMemory);
 
     /********************************* Vertex layout: *********************************/
@@ -116,7 +105,7 @@ void RenderWindow::initResources()
     };
 
     /********************************* Shader bindings: *********************************/
-    //Descritpion of the attributes used in the shader
+    //Descritpion of the attributes used for vertices in the shader
     VkVertexInputAttributeDescription vertexAttrDesc[] = {
         { // position
             0, // location has to correspond to the layout(location = x) in the shader
@@ -138,63 +127,10 @@ void RenderWindow::initResources()
     vertexInputInfo.flags = 0;
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDesc;
-    vertexInputInfo.vertexAttributeDescriptionCount = 2;
+	vertexInputInfo.vertexAttributeDescriptionCount = 2; // position and color
     vertexInputInfo.pVertexAttributeDescriptions = vertexAttrDesc;
 
-    // Set up descriptor set and its layout.
-    VkDescriptorPoolSize descriptorPoolSizes = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uint32_t(concurrentFrameCount) };
-    VkDescriptorPoolCreateInfo descriptorPoolInfo;
-    memset(&descriptorPoolInfo, 0, sizeof(descriptorPoolInfo));
-    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descriptorPoolInfo.maxSets = concurrentFrameCount;
-    descriptorPoolInfo.poolSizeCount = 1;
-    descriptorPoolInfo.pPoolSizes = &descriptorPoolSizes;
-    err = mDeviceFunctions->vkCreateDescriptorPool(logicalDevice, &descriptorPoolInfo, nullptr, &mDescriptorPool);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create descriptor pool: %d", err);
-
-     /********************************* Uniform (projection matrix) bindings: *********************************/
-    VkDescriptorSetLayoutBinding layoutBinding = {
-        0, // binding
-        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        1,
-        VK_SHADER_STAGE_VERTEX_BIT,
-        nullptr
-    };
-    VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {
-        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        nullptr,
-        0,
-        1,
-        &layoutBinding
-    };
-    err = mDeviceFunctions->vkCreateDescriptorSetLayout(logicalDevice, &descriptorLayoutInfo, nullptr, &mDescriptorSetLayout);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create descriptor set layout: %d", err);
-
-    for (int i = 0; i < concurrentFrameCount; ++i) {
-        VkDescriptorSetAllocateInfo descSetAllocInfo = {
-            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-            nullptr,
-            mDescriptorPool,
-            1,
-            &mDescriptorSetLayout
-        };
-        err = mDeviceFunctions->vkAllocateDescriptorSets(logicalDevice, &descSetAllocInfo, &mDescriptorSet[i]);
-        if (err != VK_SUCCESS)
-            qFatal("Failed to allocate descriptor set: %d", err);
-
-        VkWriteDescriptorSet descWrite;
-        memset(&descWrite, 0, sizeof(descWrite));
-        descWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descWrite.dstSet = mDescriptorSet[i];
-        descWrite.descriptorCount = 1;
-        descWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descWrite.pBufferInfo = &mUniformBufferInfo[i];
-        mDeviceFunctions->vkUpdateDescriptorSets(logicalDevice, 1, &descWrite, 0, nullptr);
-    }
-
-    // Pipeline cache
+	// Pipeline cache - supposed to increase performance
     VkPipelineCacheCreateInfo pipelineCacheInfo;
     memset(&pipelineCacheInfo, 0, sizeof(pipelineCacheInfo));
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
@@ -253,7 +189,7 @@ void RenderWindow::initResources()
         }
     };
 
-    pipelineInfo.stageCount = 2;
+    pipelineInfo.stageCount = 2; //vertex and fragment shader
     pipelineInfo.pStages = shaderStages;
     pipelineInfo.pVertexInputState = &vertexInputInfo;
 
@@ -329,7 +265,7 @@ void RenderWindow::initResources()
 
     qDebug("\n ***************************** initResources finished ******************************************* \n");
 
-    getVulkanHWInfo();
+	getVulkanHWInfo(); // if you want to get info about the Vulkan hardware
 }
 
 void RenderWindow::initSwapChainResources()
@@ -360,8 +296,7 @@ void RenderWindow::startNextFrame()
     VkCommandBuffer cmdBuf = mWindow->currentCommandBuffer();
     const QSize sz = mWindow->swapChainImageSize();
 
-    //Backtgound color of the render window - dark grey -
-    /**PLAY WITH THIS**/
+    //Backtgound color of the render window - dark grey
     VkClearColorValue clearColor = {{ 0.3, 0.3, 0.3, 1 }};
 
     VkClearDepthStencilValue clearDS = { 1, 0 };
@@ -411,9 +346,8 @@ void RenderWindow::startNextFrame()
     QMatrix4x4 tempMatrix = mProjectionMatrix;
 	tempMatrix.translate(-0.7f, 0, 0);
     tempMatrix.rotate(mRotation, 0, 1, 0);
-	mRotation += 1.0f; //set for next frame
   
-	//Push the model matrix to the shader
+	//Push the model matrix to the shader and draw the triangle
 	setModelMatrix(tempMatrix);
     mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
 
@@ -429,6 +363,8 @@ void RenderWindow::startNextFrame()
 
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
+
+    mRotation += 1.0f; //set for next frame
 }
 
 VkShaderModule RenderWindow::createShader(const QString &name)

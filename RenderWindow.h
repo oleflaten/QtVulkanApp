@@ -48,11 +48,7 @@ protected:
 
     VkDeviceMemory mBufferMemory{ VK_NULL_HANDLE };
     VkBuffer mBuffer{ VK_NULL_HANDLE };
-    VkDescriptorBufferInfo mUniformBufferInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT]{ 
-        { VK_NULL_HANDLE, 0, 0 }, 
-        { VK_NULL_HANDLE, 0, 0 } 
-    };
-
+ 
     VkDescriptorPool mDescriptorPool{ VK_NULL_HANDLE };
     VkDescriptorSetLayout mDescriptorSetLayout{ VK_NULL_HANDLE };
     VkDescriptorSet mDescriptorSet[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT]{ VK_NULL_HANDLE };
