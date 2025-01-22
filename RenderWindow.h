@@ -36,7 +36,7 @@ protected:
     VkShaderModule createShader(const QString &name);
 
     //The ModelViewProjection MVP matrix
-    QMatrix4x4 mProj;
+    QMatrix4x4 mProjectionMatrix;
     //Rotation angle of the triangle
     float mRotation{ 0.0f };
 
@@ -44,17 +44,20 @@ protected:
     QVulkanWindow* mWindow{ nullptr };
     QVulkanDeviceFunctions *mDeviceFunctions{ nullptr };
 
-    VkDeviceMemory mBufMem = VK_NULL_HANDLE;
-    VkBuffer mBuf = VK_NULL_HANDLE;
-    VkDescriptorBufferInfo mUniformBufInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkDeviceMemory mBufferMemory{ VK_NULL_HANDLE };
+    VkBuffer mBuffer{ VK_NULL_HANDLE };
+    VkDescriptorBufferInfo mUniformBufferInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT]{ 
+        { VK_NULL_HANDLE, 0, 0 }, 
+        { VK_NULL_HANDLE, 0, 0 } 
+    };
 
-    VkDescriptorPool mDescPool = VK_NULL_HANDLE;
-    VkDescriptorSetLayout mDescSetLayout = VK_NULL_HANDLE;
-    VkDescriptorSet mDescSet[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkDescriptorPool mDescriptorPool{ VK_NULL_HANDLE };
+    VkDescriptorSetLayout mDescriptorSetLayout{ VK_NULL_HANDLE };
+    VkDescriptorSet mDescriptorSet[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT]{ VK_NULL_HANDLE };
 
-    VkPipelineCache mPipelineCache = VK_NULL_HANDLE;
-    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
-    VkPipeline mPipeline = VK_NULL_HANDLE;
+    VkPipelineCache mPipelineCache{ VK_NULL_HANDLE };
+    VkPipelineLayout mPipelineLayout{ VK_NULL_HANDLE };
+    VkPipeline mPipeline{ VK_NULL_HANDLE };
 };
 
 #endif // RENDERWINDOW_H
