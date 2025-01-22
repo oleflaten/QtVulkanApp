@@ -50,37 +50,25 @@ void RenderWindow::initResources()
 
     /* Prepare the vertex and uniform data.The vertex data will never
     change so one buffer is sufficient regardless of the value of
-    QVulkanWindow::CONCURRENT_FRAME_COUNT. Uniform data is changing per
-    frame however so active frames have to have a dedicated copy.
+    QVulkanWindow::CONCURRENT_FRAME_COUNT. */
 
-    Use just one memory allocation and one buffer. We will then specify the
-    appropriate offsets for uniform buffers in the VkDescriptorBufferInfo.
-    Have to watch out for
-    VkPhysicalDeviceLimits::minUniformBufferOffsetAlignment, though.
-
-    The uniform buffer is not strictly required in this example, we could
-    have used push constants as well since our single matrix (64 bytes) fits
-    into the spec mandated minimum limit of 128 bytes. However, once that
-    limit is not sufficient, the per-frame buffers, as shown below, will
-    become necessary.
-    */
     const int concurrentFrameCount = mWindow->concurrentFrameCount(); // 2 on Oles Machine
     const VkPhysicalDeviceLimits *pdevLimits = &mWindow->physicalDeviceProperties()->limits;
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
 	qDebug("uniform buffer offset alignment is %u", (uint)uniAlign); //64 on Oles machine
 
-    VkBufferCreateInfo bufInfo;
-	memset(&bufInfo, 0, sizeof(bufInfo)); //Clear out the memory
-    bufInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; // Set the structure type
+    VkBufferCreateInfo bufferInfo{};
+	memset(&bufferInfo, 0, sizeof(bufferInfo)); //Clear out the memory
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; // Set the structure type
 
     // Our internal layout is vertex, uniform, uniform, ... with each uniform buffer 
     // start offset aligned to uniAlign.
     const VkDeviceSize vertexAllocSize = aligned(sizeof(vertexData), uniAlign);
     const VkDeviceSize uniformAllocSize = aligned(UNIFORM_DATA_SIZE, uniAlign);
-	bufInfo.size = vertexAllocSize + concurrentFrameCount * uniformAllocSize; //One vertex buffer and two uniform buffers
-	bufInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; // Set the usage to both vertex buffer and uniform buffer
+	bufferInfo.size = vertexAllocSize + concurrentFrameCount * uniformAllocSize; //One vertex buffer and two uniform buffers
+	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; // Set the usage to both vertex buffer and uniform buffer
 
-    VkResult err = mDeviceFunctions->vkCreateBuffer(logicalDevice, &bufInfo, nullptr, &mBuffer);
+    VkResult err = mDeviceFunctions->vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &mBuffer);
     if (err != VK_SUCCESS)
         qFatal("Failed to create buffer: %d", err);
 
@@ -144,7 +132,7 @@ void RenderWindow::initResources()
         }
     };
 
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo;
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.pNext = nullptr;
     vertexInputInfo.flags = 0;
@@ -154,14 +142,14 @@ void RenderWindow::initResources()
     vertexInputInfo.pVertexAttributeDescriptions = vertexAttrDesc;
 
     // Set up descriptor set and its layout.
-    VkDescriptorPoolSize descPoolSizes = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uint32_t(concurrentFrameCount) };
-    VkDescriptorPoolCreateInfo descPoolInfo;
-    memset(&descPoolInfo, 0, sizeof(descPoolInfo));
-    descPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    descPoolInfo.maxSets = concurrentFrameCount;
-    descPoolInfo.poolSizeCount = 1;
-    descPoolInfo.pPoolSizes = &descPoolSizes;
-    err = mDeviceFunctions->vkCreateDescriptorPool(logicalDevice, &descPoolInfo, nullptr, &mDescriptorPool);
+    VkDescriptorPoolSize descriptorPoolSizes = { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, uint32_t(concurrentFrameCount) };
+    VkDescriptorPoolCreateInfo descriptorPoolInfo;
+    memset(&descriptorPoolInfo, 0, sizeof(descriptorPoolInfo));
+    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolInfo.maxSets = concurrentFrameCount;
+    descriptorPoolInfo.poolSizeCount = 1;
+    descriptorPoolInfo.pPoolSizes = &descriptorPoolSizes;
+    err = mDeviceFunctions->vkCreateDescriptorPool(logicalDevice, &descriptorPoolInfo, nullptr, &mDescriptorPool);
     if (err != VK_SUCCESS)
         qFatal("Failed to create descriptor pool: %d", err);
 
@@ -173,14 +161,14 @@ void RenderWindow::initResources()
         VK_SHADER_STAGE_VERTEX_BIT,
         nullptr
     };
-    VkDescriptorSetLayoutCreateInfo descLayoutInfo = {
+    VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo = {
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         nullptr,
         0,
         1,
         &layoutBinding
     };
-    err = mDeviceFunctions->vkCreateDescriptorSetLayout(logicalDevice, &descLayoutInfo, nullptr, &mDescriptorSetLayout);
+    err = mDeviceFunctions->vkCreateDescriptorSetLayout(logicalDevice, &descriptorLayoutInfo, nullptr, &mDescriptorSetLayout);
     if (err != VK_SUCCESS)
         qFatal("Failed to create descriptor set layout: %d", err);
 
@@ -215,11 +203,21 @@ void RenderWindow::initResources()
         qFatal("Failed to create pipeline cache: %d", err);
 
     // Pipeline layout
+    
+    // OEF: PushConstants update - set up the push constant info
+    VkPushConstantRange pushConstantRange{
+        VK_SHADER_STAGE_VERTEX_BIT,
+        0,
+		16 * sizeof(float) // 16 floats for the model matrix
+    };
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo;
     memset(&pipelineLayoutInfo, 0, sizeof(pipelineLayoutInfo));
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &mDescriptorSetLayout;
+	pipelineLayoutInfo.pushConstantRangeCount = 1;  // OEF: PushConstants update
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange; // OEF: PushConstants update
     err = mDeviceFunctions->vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout);
     if (err != VK_SUCCESS)
         qFatal("Failed to create pipeline layout: %d", err);
@@ -359,7 +357,7 @@ void RenderWindow::initSwapChainResources()
 void RenderWindow::startNextFrame()
 {
     VkDevice dev = mWindow->device();
-    VkCommandBuffer cb = mWindow->currentCommandBuffer();
+    VkCommandBuffer cmdBuf = mWindow->currentCommandBuffer();
     const QSize sz = mWindow->swapChainImageSize();
 
     //Backtgound color of the render window - dark grey -
@@ -381,67 +379,54 @@ void RenderWindow::startNextFrame()
     rpBeginInfo.renderArea.extent.height = sz.height();
     rpBeginInfo.clearValueCount = mWindow->sampleCountFlagBits() > VK_SAMPLE_COUNT_1_BIT ? 3 : 2;
     rpBeginInfo.pClearValues = clearValues;
-    VkCommandBuffer cmdBuf = mWindow->currentCommandBuffer();
     mDeviceFunctions->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    quint8* GPUmemPointer;
-    VkResult err = mDeviceFunctions->vkMapMemory(dev, mBufferMemory, mUniformBufferInfo[mWindow->currentFrame()].offset,
-                                                  UNIFORM_DATA_SIZE, 0, reinterpret_cast<void **>(&GPUmemPointer));
-    if (err != VK_SUCCESS)
-        qFatal("Failed to map memory: %d", err);
-
-    /********************************* Set the rotation in our matrix *********************************/
-    //We make a temp of this to now mess up the original matrix
-    QMatrix4x4 tempMatrix = mProjectionMatrix;
-    //Rotates the object
-    //                  speed,   X, Y, Z axis
-    /**PLAY WITH THIS**/
-    tempMatrix.rotate(mRotation, 0, 1, 0);
-
-    memcpy(GPUmemPointer, tempMatrix.constData(), 16 * sizeof(float));
-    mDeviceFunctions->vkUnmapMemory(dev, mBufferMemory);
-
-    //rotate the triangle 1 degree per frame
-    /**PLAY WITH THIS**/
-    mRotation += 1.0f;
-
-    mDeviceFunctions->vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
-    mDeviceFunctions->vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1,
+    mDeviceFunctions->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
+    mDeviceFunctions->vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1,
                                                &mDescriptorSet[mWindow->currentFrame()], 0, nullptr);
     VkDeviceSize vbOffset = 0;
 
     //The second parameter here is the binding to the VertexInputBindingDescription,
     //so it has to be the same number used there
-    mDeviceFunctions->vkCmdBindVertexBuffers(cb, 0, 1, &mBuffer, &vbOffset);
+    mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mBuffer, &vbOffset);
 
-    VkViewport viewport;
+    VkViewport viewport{};
     viewport.x = viewport.y = 0;
     viewport.width = sz.width();
     viewport.height = sz.height();
     viewport.minDepth = 0;
     viewport.maxDepth = 1;
-    mDeviceFunctions->vkCmdSetViewport(cb, 0, 1, &viewport);
+    mDeviceFunctions->vkCmdSetViewport(cmdBuf, 0, 1, &viewport);
 
-    VkRect2D scissor;
+    VkRect2D scissor{};
     scissor.offset.x = scissor.offset.y = 0;
     scissor.extent.width = viewport.width;
     scissor.extent.height = viewport.height;
-    mDeviceFunctions->vkCmdSetScissor(cb, 0, 1, &scissor);
+    mDeviceFunctions->vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
     /********************************* Our draw call!: *********************************/
-    // the number 3 is the number of vertices, so you have to change that if you add more!
-    mDeviceFunctions->vkCmdDraw(cb, 3, 1, 0, 0);
+
+	//Set model matrix for first triangle
+    //We make a temp of this to not mess up the original matrix
+    QMatrix4x4 tempMatrix = mProjectionMatrix;
+	tempMatrix.translate(-0.7f, 0, 0);
+    tempMatrix.rotate(mRotation, 0, 1, 0);
+	mRotation += 1.0f; //set for next frame
+  
+	//Push the model matrix to the shader
+	setModelMatrix(tempMatrix);
+    mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+
+	//Set model matrix for second triangle
+    tempMatrix = mProjectionMatrix;
+    tempMatrix.translate(0.7f, 0, 0);
+	tempMatrix.rotate(mRotation, 0, 0, 1);
+
+	setModelMatrix(tempMatrix);
+	mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
 
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
 
-    /*QVulkanWindow subclasses queue their draw calls in their reimplementation of
-    QVulkanWindowRenderer::startNextFrame(). Once done, they are required to call back
-    QVulkanWindow::frameReady(). The example has no asynchronous command generation, so the
-    frameReady() call is made directly from startNextFrame().
-    To get continuous updates, the example simply invokes QWindow::requestUpdate() in order to schedule a repaint.
-    This means that it requests the Qt window system to call the update() method,
-    which will eventually lead to the paintEvent() being called.
-    */
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
 }
@@ -471,6 +456,13 @@ VkShaderModule RenderWindow::createShader(const QString &name)
     }
 
     return shaderModule;
+}
+
+void RenderWindow::setModelMatrix(QMatrix4x4 modelMatrix)
+{
+
+	mDeviceFunctions->vkCmdPushConstants(mWindow->currentCommandBuffer(), mPipelineLayout, 
+        VK_SHADER_STAGE_VERTEX_BIT, 0, 16 * sizeof(float), modelMatrix.constData());
 }
 
 void RenderWindow::getVulkanHWInfo()

@@ -35,6 +35,8 @@ protected:
     //Creates the Vulkan shader module from the precompiled shader files in .spv format
     VkShaderModule createShader(const QString &name);
 
+	void setModelMatrix(QMatrix4x4 modelMatrix);
+
     //The ModelViewProjection MVP matrix
     QMatrix4x4 mProjectionMatrix;
     //Rotation angle of the triangle
