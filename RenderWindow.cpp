@@ -83,8 +83,8 @@ void RenderWindow::createBuffer(VkDevice logicalDevice, const VkDeviceSize uniAl
 RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
 	: mWindow(w)
 {
-    mObjects.push_back(new VkTriangle());
-    //mObjects.push_back(new VkTriangleSurface("C:/Users/bjorn/Documents/GitHub/Vulkan/QtVulkanApp/function.txt"));
+    //mObjects.push_back(new VkTriangle());
+    mObjects.push_back(new VkTriangleSurface("C:/Users/bjorn/Documents/GitHub/Vulkan/QtVulkanApp/vertices_1.txt"));
 }
 
 
@@ -217,7 +217,7 @@ void RenderWindow::initResources()
     VkPipelineInputAssemblyStateCreateInfo ia;
     memset(&ia, 0, sizeof(ia));
     ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    ia.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
     pipelineInfo.pInputAssemblyState = &ia;
 
     // The viewport and scissor will be set dynamically via vkCmdSetViewport/Scissor.
@@ -371,7 +371,8 @@ void RenderWindow::startNextFrame()
         setModelMatrix(mProjectionMatrix * (it)->mMatrix);
         mDeviceFunctions->vkCmdDraw(cmdBuf, (it)->mVertices.size(), 1, 0, 0);
 
-        qDebug("NONONONONO");
+        qDebug("NONONONONONONONONONO");
+        qDebug("WAITWAITWAITWAITWAIT");
     }
 /*
     //Push the model matrix to the shader and draw the triangle
@@ -385,9 +386,10 @@ void RenderWindow::startNextFrame()
 
     setModelMatrix(tempMatrix);
     mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
+*/
 
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
-*/
+
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
 
