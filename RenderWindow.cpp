@@ -1,3 +1,4 @@
+#include "visualobject.h"
 #include "RenderWindow.h"
 #include <QVulkanFunctions>
 #include <QFile>
@@ -22,7 +23,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 }
 
 
-void RenderWindow::createBuffer(VkDevice logicalDevice, const VkDeviceSize uniAlign,VisualObject* visualObject, VkBufferUsageFlags usage)
+void RenderWindow::createBuffer(VkDevice logicalDevice, const VkDeviceSize uniAlign, VisualObject* visualObject, VkBufferUsageFlags usage)
 {
     VkBufferCreateInfo bufferInfo{};
     memset(&bufferInfo, 0, sizeof(bufferInfo)); //Clear out the memory
@@ -83,7 +84,7 @@ RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
 	: mWindow(w)
 {
     mObjects.push_back(new VkTriangle());
-    mObjects.push_back((new VkTriangleSurface("C:/Users/bjorn/Documents/GitHub/Vulkan/QtVulkanApp/function.txt")));
+    //mObjects.push_back(new VkTriangleSurface("C:/Users/bjorn/Documents/GitHub/Vulkan/QtVulkanApp/function.txt"));
 }
 
 
@@ -108,9 +109,11 @@ void RenderWindow::initResources()
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; // Set the structure type
 
 
-    for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
+    for (auto it : mObjects)
     {
-        createBuffer(logicalDevice, uniAlign, *it);
+        createBuffer(logicalDevice, uniAlign, it);
+
+        qDebug("YESYESYES");
     }
 
 
@@ -306,6 +309,8 @@ void RenderWindow::initSwapChainResources()
 
     //Flip projection because of Vulkan's -Y axis
     mProjectionMatrix.scale(1.0f, -1.0f, 1.0);
+
+    mProjectionMatrix.rotate(0.f,0.f,0.f);
 }
 
 void RenderWindow::startNextFrame()
@@ -356,15 +361,17 @@ void RenderWindow::startNextFrame()
 
 	//Set model matrix for first triangle
     //We make a temp of this to not mess up the original matrix
-    QMatrix4x4 tempMatrix = mProjectionMatrix;
+    //QMatrix4x4 tempMatrix = mProjectionMatrix;
     //tempMatrix.translate(-0.7f, 0, 0);
     //tempMatrix.rotate(mRotation, 0, 1, 0);
 
     for (auto it : mObjects)
     {
-        mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &(*it).mBuffer, &vbOffset);
-        setModelMatrix(mProjectionMatrix * (*it).mMatrix);
-        mDeviceFunctions->vkCmdDraw(cmdBuf, (*it).mVertices.size(), 1, 0, 0);
+        mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &(it)->mBuffer, &vbOffset);
+        setModelMatrix(mProjectionMatrix * (it)->mMatrix);
+        mDeviceFunctions->vkCmdDraw(cmdBuf, (it)->mVertices.size(), 1, 0, 0);
+
+        qDebug("NONONONONO");
     }
 /*
     //Push the model matrix to the shader and draw the triangle
