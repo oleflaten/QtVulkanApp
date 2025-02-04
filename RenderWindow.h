@@ -1,10 +1,22 @@
 #ifndef RENDERWINDOW_H
 #define RENDERWINDOW_H
 
+#include "vktriangle.h"
+#include "vktrianglesurface.h"
 #include <QVulkanWindow>
 
 class RenderWindow : public QVulkanWindowRenderer
 {
+private:
+    VkTriangle mTriangle;
+    VkTriangleSurface mSurface;
+    VisualObject mVisualObject;
+    std::vector<VisualObject*> mObjects;
+
+
+    void createBuffer(VkDevice logicalDevice,const VkDeviceSize uniAlign,VisualObject* visualObject,VkBufferUsageFlags usage=VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+
 public:
     RenderWindow(QVulkanWindow *w, bool msaa = false);
 

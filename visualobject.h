@@ -4,14 +4,14 @@
 
 #include <QVulkanWindow> 	// VkDeviceMemory, VkBuffer defined here
 #include <vector>
-#include "vertex.h"
+#include "vkvertex.h"
 
 
 class VisualObject
 {
 public:
-    std::vector<Vertex> mVertices;
-    std::vector<Vertex> getVertices() { return mVertices; }
+    std::vector<VKVertex> mVertices;
+    std::vector<VKVertex> getVertices() { return mVertices; }
     VisualObject();
     //
     VkDeviceMemory mBufferMemory{ VK_NULL_HANDLE };
@@ -20,3 +20,5 @@ public:
     //
     QMatrix4x4 mMatrix;
 };
+
+#endif
