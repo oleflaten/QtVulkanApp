@@ -1,4 +1,6 @@
 #include "visualobject.h"
+#include "spiralgenerator.h"
+#include "apesadelgenerator.h"
 #include "RenderWindow.h"
 #include <QVulkanFunctions>
 #include <QFile>
@@ -84,7 +86,10 @@ RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
 	: mWindow(w)
 {
     //mObjects.push_back(new VkTriangle());
-    mObjects.push_back(new VkTriangleSurface("C:/Users/bjorn/Documents/GitHub/Vulkan/QtVulkanApp/vertices_1.txt"));
+    //mObjects.push_back(new VkTriangleSurface("C:/Users/bjorn/Documents/GitHub/Vulkan/QtVulkanApp/vertices_1.txt"));
+    mObjects.push_back(new SpiralGenerator(0,20,100));
+
+    //mObjects.push_back((new ApeSadelGenerator(-1,1,0.2)));
 }
 
 
@@ -112,8 +117,6 @@ void RenderWindow::initResources()
     for (auto it : mObjects)
     {
         createBuffer(logicalDevice, uniAlign, it);
-
-        qDebug("YESYESYES");
     }
 
 
@@ -370,9 +373,6 @@ void RenderWindow::startNextFrame()
         mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &(it)->mBuffer, &vbOffset);
         setModelMatrix(mProjectionMatrix * (it)->mMatrix);
         mDeviceFunctions->vkCmdDraw(cmdBuf, (it)->mVertices.size(), 1, 0, 0);
-
-        qDebug("NONONONONONONONONONO");
-        qDebug("WAITWAITWAITWAITWAIT");
     }
 /*
     //Push the model matrix to the shader and draw the triangle

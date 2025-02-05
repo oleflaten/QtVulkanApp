@@ -15,6 +15,8 @@ qt_add_executable(QtVulkanApp
     vktriangle.h vktriangle.cpp
     vkvertex.cpp vkvertex.h
     vktrianglesurface.h vktrianglesurface.cpp
+    spiralgenerator.h spiralgenerator.cpp
+    apesadelgenerator.h apesadelgenerator.cpp
 )
 # Define the shader files
 set(SHADER_FILES
