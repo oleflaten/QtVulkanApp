@@ -7,7 +7,12 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QTabWidget>
+#include <QMenuBar>
+#include <QLineEdit>
+#include <QInputDialog>
 #include "VulkanWindow.h"
+#include "RenderWindow.h"
+#include "VkTriangleSurface.h"
 
 MainWindow::MainWindow(VulkanWindow *vw, QPlainTextEdit *logWidget)
     : mVulkanWindow(vw)
@@ -72,4 +77,60 @@ void MainWindow::onScreenGrabRequested()
     fd.selectFile("test.png");
     if (fd.exec() == QDialog::Accepted)
         img.save(fd.selectedFiles().first());
+}
+
+QMenuBar *MainWindow::createMenu()
+{
+    menuBar = new QMenuBar(this);
+    fileMenu = new QMenu(tr("&File"), this);
+    openFileAction = fileMenu->addAction(tr("&Open file..."));
+    exitAction = fileMenu->addAction(tr("E&xit"));
+    menuBar->addMenu(fileMenu);
+    menuBar->setVisible(true);
+    //
+    connect(openFileAction, SIGNAL(triggered()), this, SLOT(openFile()));
+
+    //   editMenu = new QMenu(this);
+    //   editNameAction = editMenu->addAction(tr("&Enter name..."));
+    //   menuBar->addMenu(editMenu);
+    //   editMenu->setVisible(true);
+    return menuBar;
+}
+void MainWindow::openFile() // slot
+{
+    auto filnavn = QFileDialog::getOpenFileName(this);
+    if (!filnavn.isEmpty())
+    {
+        //QString tekst;
+        //loadFile(filnavn, tekst);
+        //textEdit->setPlainText(tekst);
+        VkTriangleSurface* surf = new VkTriangleSurface(filnavn.toStdString());
+        auto rw = dynamic_cast<RenderWindow*>(mVulkanWindow->getRenderWindow());
+        rw->getObjects().push_back(surf);
+        rw->releaseResources();
+        rw->initResources();
+    }
+}
+
+void MainWindow::selectName()
+{
+    bool ok;
+    QString text = QInputDialog::getText(this, tr("QInputDialog::getText()"),
+                                         tr("Object name:"), QLineEdit::Normal,
+                                         QDir::home().dirName(), &ok);
+    if (ok && !text.isEmpty())
+        mSelectedName = text.toStdString();
+
+    auto rw = dynamic_cast<RenderWindow*>(mVulkanWindow->getRenderWindow());
+    auto map = rw->getMap();
+    auto visualObject = map[mSelectedName];
+    if (visualObject != nullptr)
+        mVulkanWindow->setSelectedObject(visualObject);
+    else {
+        QMessageBox msgBox;
+        msgBox.setText("Finner ikke " + QString(mSelectedName.c_str()));
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setDefaultButton(QMessageBox::Close);
+        // int ret = msgBox.exec();
+    }
 }
