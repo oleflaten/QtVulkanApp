@@ -16,7 +16,7 @@ QVulkanWindowRenderer* VulkanWindow::createRenderer()
 
 void VulkanWindow::keyPressEvent(QKeyEvent *event)
 {
-    if (event->key() == Qt::Key_A)
+    if (event->key() == Qt::Key_G)
     {
         //dynamic_cast<RenderWindow*>(mRenderWindow)->mObjects.at(mIndex)->move(-0.1f);
         if(mSelectedObject)

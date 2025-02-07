@@ -31,6 +31,9 @@ MainWindow::MainWindow(VulkanWindow *vw, QPlainTextEdit *logWidget)
     QPushButton *quitButton = new QPushButton(tr("&Quit"));
     quitButton->setFocusPolicy(Qt::NoFocus);
 
+    QPushButton *nameButton = new QPushButton(tr("&Name")); // Dag 040225
+    nameButton->setFocusPolicy(Qt::NoFocus);                // Dag 040225
+
     //connect push of grab button to screen grab function
     connect(grabButton, &QPushButton::clicked, this, &MainWindow::onScreenGrabRequested);
     //connect quit button to quit-function
@@ -38,14 +41,19 @@ MainWindow::MainWindow(VulkanWindow *vw, QPlainTextEdit *logWidget)
     //connect changes in our logger to trigger scroll to end of log window, using a lambda
     connect(mLogWidget, &QPlainTextEdit::textChanged, [logWidget]()
             { logWidget->moveCursor(QTextCursor::End); });
+    //select file to import
+    connect(nameButton, SIGNAL(clicked()), this, SLOT(selectName()));   // Dag 040225
 
     //Makes the layout of the program, adding items we have made
     QVBoxLayout *layout = new QVBoxLayout;
+    layout->setMenuBar(createMenu());
     layout->addWidget(vulkanWindowWrapper, 7);
     mInfoTab = new QTabWidget(this);
     mInfoTab->addTab(mLogWidget, tr("Debug Log"));
     layout->addWidget(mInfoTab, 2);
     QHBoxLayout *buttonLayout = new QHBoxLayout;
+
+    buttonLayout->addWidget(nameButton, 1); // Dag 040225
     buttonLayout->addWidget(grabButton, 1);
     buttonLayout->addWidget(quitButton, 1);
     layout->addLayout(buttonLayout);
@@ -84,11 +92,12 @@ QMenuBar *MainWindow::createMenu()
     menuBar = new QMenuBar(this);
     fileMenu = new QMenu(tr("&File"), this);
     openFileAction = fileMenu->addAction(tr("&Open file..."));
-    exitAction = fileMenu->addAction(tr("E&xit"));
+    // exitAction = fileMenu->addAction(tr("E&xit"));
     menuBar->addMenu(fileMenu);
     menuBar->setVisible(true);
     //
     connect(openFileAction, SIGNAL(triggered()), this, SLOT(openFile()));
+    // connect(exitAction, SIGNAL(triggered()), qApp, &QCoreApplication::quit); //&QCoreApplication::quit);
 
     //   editMenu = new QMenu(this);
     //   editNameAction = editMenu->addAction(tr("&Enter name..."));
