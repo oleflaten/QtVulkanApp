@@ -92,12 +92,12 @@ QMenuBar *MainWindow::createMenu()
     menuBar = new QMenuBar(this);
     fileMenu = new QMenu(tr("&File"), this);
     openFileAction = fileMenu->addAction(tr("&Open file..."));
-    // exitAction = fileMenu->addAction(tr("E&xit"));
+    exitAction = fileMenu->addAction(tr("E&xit"));
     menuBar->addMenu(fileMenu);
     menuBar->setVisible(true);
     //
-    connect(openFileAction, SIGNAL(triggered()), this, SLOT(openFile()));
-    // connect(exitAction, SIGNAL(triggered()), qApp, &QCoreApplication::quit); //&QCoreApplication::quit);
+    connect(openFileAction, &QAction::triggered, this, &MainWindow::openFile);
+    connect(exitAction, &QAction::triggered, qApp, &QCoreApplication::quit);
 
     //   editMenu = new QMenu(this);
     //   editNameAction = editMenu->addAction(tr("&Enter name..."));
