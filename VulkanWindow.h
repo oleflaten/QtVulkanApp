@@ -31,7 +31,7 @@ protected:
     // these functions in the cpp-file to use them of course!)
     //
     //    void mousePressEvent(QMouseEvent *event) override{}
-    //    void mouseMoveEvent(QMouseEvent *event) override{}
+    void mouseMoveEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;              //the only one we use now
     //    void keyReleaseEvent(QKeyEvent *event) override{}
     //    void wheelEvent(QWheelEvent *event) override{}
@@ -39,5 +39,8 @@ protected:
     QVulkanWindowRenderer* mRenderWindow{ nullptr };
     VisualObject* mSelectedObject{ nullptr };
     int mIndex{0};
+
+private:
+    int mMouseXlast{0}; //for mouse rotate input
 };
 #endif // VULKANWINDOW_H
