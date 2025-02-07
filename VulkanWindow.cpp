@@ -10,17 +10,20 @@ VulkanWindow::VulkanWindow()
 QVulkanWindowRenderer* VulkanWindow::createRenderer()
 {
     //Makes a new instance of the RenderWindow (our Renderer) class
-    return new RenderWindow(this, true); // last true == try MSAA
+    mRenderWindow = new RenderWindow(this, true); // last true == try MSAA
+    return mRenderWindow;
 }
 
 void VulkanWindow::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_A)
     {
-        qDebug("Move object");
         //dynamic_cast<RenderWindow*>(mRenderWindow)->mObjects.at(mIndex)->move(-0.1f);
         if(mSelectedObject)
+        {
+            qDebug("Move object");
             mSelectedObject->move(-0.1f);
+        }
     }
     if(event->key() == Qt::Key_S)
     {

@@ -2,19 +2,6 @@
 #include <QVulkanFunctions>
 #include <QFile>
 
-
-// Hardcoded mesh for now. Will be put in its own class soon!
-// NB 1: Vulkan's near/far plane (Z axis) is at 0/1 instead of -1/1, as in OpenGL!
-// NB 2: Vulkan Y is negated in clip space so we fix that when making the projection matrix
-// **PLAY WITH THIS**
-static float vertexData[] = {
-    // Y up, front = CCW
-    // X,     Y,     Z,     R,    G,    B
-    0.0f,   0.5f,  0.0f,   1.0f, 0.0f, 0.0f,    //top vertex - red
-    -0.5f,  -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,    //bottom left vertex - green
-    0.5f,  -0.5f,  0.0f,   0.0f, 0.0f, 1.0f     //bottom right vertex - blue
-};
-
 //Utility function for alignment:
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
 {
@@ -38,6 +25,18 @@ RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
             }
         }
     }
+    // Dag 230125
+    mObjects.push_back(new VkTriangle());
+    mObjects.push_back((new VkTriangleSurface()));
+    // Dag 030225
+    mObjects.at(0)->setName("triangel");
+    mObjects.at(1)->setName("surf");
+    // **************************************
+    // Legger inn objekter i map
+    // **************************************
+    //std::string navn{"navn"}; // Skal VisualObject klassen få en navn-variabel?
+    for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
+        mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
 }
 
 void RenderWindow::initResources()
@@ -54,53 +53,22 @@ void RenderWindow::initResources()
     const int concurrentFrameCount = mWindow->concurrentFrameCount(); // 2 on Oles Machine
     const VkPhysicalDeviceLimits *pdevLimits = &mWindow->physicalDeviceProperties()->limits;
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
-	qDebug("uniform buffer offset alignment is %u", (uint)uniAlign); //64 on Oles machine
+    qDebug("uniform buffer offset alignment is %u", (uint)uniAlign); //64 on Oles machine
 
+    /// Dag 240125:
     VkBufferCreateInfo bufferInfo{};
-	memset(&bufferInfo, 0, sizeof(bufferInfo)); //Clear out the memory
+    memset(&bufferInfo, 0, sizeof(bufferInfo)); //Clear out the memory
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; // Set the structure type
 
-    // Layout is just the vertex data
-    // start offset aligned to uniAlign.
-    const VkDeviceSize vertexAllocSize = aligned(sizeof(vertexData), uniAlign);
-	bufferInfo.size = vertexAllocSize; //One vertex buffer (we don't use Uniform buffer in this example)
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT; // Set the usage vertex buffer (not using Uniform buffer in this example)
-
-    VkResult err = mDeviceFunctions->vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &mBuffer);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create buffer: %d", err);
-
-    VkMemoryRequirements memReq;
-    mDeviceFunctions->vkGetBufferMemoryRequirements(logicalDevice, mBuffer, &memReq);
-
-    VkMemoryAllocateInfo memAllocInfo = {
-        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        nullptr,
-        memReq.size,
-        mWindow->hostVisibleMemoryIndex()
-    };
-
-    err = mDeviceFunctions->vkAllocateMemory(logicalDevice, &memAllocInfo, nullptr, &mBufferMemory);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to allocate memory: %d", err);
-
-    err = mDeviceFunctions->vkBindBufferMemory(logicalDevice, mBuffer, mBufferMemory, 0);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to bind buffer memory: %d", err);
-
-    quint8* p{nullptr};
-    err = mDeviceFunctions->vkMapMemory(logicalDevice, mBufferMemory, 0, memReq.size, 0, reinterpret_cast<void **>(&p));
-    if (err != VK_SUCCESS)
-        qFatal("Failed to map memory: %d", err);
-    memcpy(p, vertexData, sizeof(vertexData));
-    mDeviceFunctions->vkUnmapMemory(logicalDevice, mBufferMemory);
+    for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
+    {
+        createBuffer(logicalDevice, uniAlign, *it);
+    }
 
     /********************************* Vertex layout: *********************************/
-
-    //The size of each vertex to be passed to the shader
     VkVertexInputBindingDescription vertexBindingDesc = {
-        0, // binding - has to match that in VkVertexInputAttributeDescription and startNextFrame()s m_devFuncs->vkCmdBindVertexBuffers
-        6 * sizeof(float), // stride account for X, Y, Z, R, G, B
+        0,
+        sizeof(Vertex),
         VK_VERTEX_INPUT_RATE_VERTEX
     };
 
@@ -127,32 +95,31 @@ void RenderWindow::initResources()
     vertexInputInfo.flags = 0;
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDesc;
-	vertexInputInfo.vertexAttributeDescriptionCount = 2; // position and color
+    vertexInputInfo.vertexAttributeDescriptionCount = 2; // position and color
     vertexInputInfo.pVertexAttributeDescriptions = vertexAttrDesc;
 
-	// Pipeline cache - supposed to increase performance
+    // Pipeline cache - supposed to increase performance
     VkPipelineCacheCreateInfo pipelineCacheInfo;
     memset(&pipelineCacheInfo, 0, sizeof(pipelineCacheInfo));
     pipelineCacheInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-    err = mDeviceFunctions->vkCreatePipelineCache(logicalDevice, &pipelineCacheInfo, nullptr, &mPipelineCache);
+    VkResult err = mDeviceFunctions->vkCreatePipelineCache(logicalDevice, &pipelineCacheInfo, nullptr, &mPipelineCache);
     if (err != VK_SUCCESS)
         qFatal("Failed to create pipeline cache: %d", err);
 
     // Pipeline layout
-    
     // OEF: PushConstants update - set up the push constant info
     VkPushConstantRange pushConstantRange{
         VK_SHADER_STAGE_VERTEX_BIT,
         0,
-		16 * sizeof(float) // 16 floats for the model matrix
+        16 * sizeof(float) // 16 floats for the model matrix
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo;
     memset(&pipelineLayoutInfo, 0, sizeof(pipelineLayoutInfo));
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 0;
-	pipelineLayoutInfo.pushConstantRangeCount = 1;  // OEF: PushConstants update
-	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange; // OEF: PushConstants update
+    pipelineLayoutInfo.pushConstantRangeCount = 1;  // OEF: PushConstants update
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange; // OEF: PushConstants update
     err = mDeviceFunctions->vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout);
     if (err != VK_SUCCESS)
         qFatal("Failed to create pipeline layout: %d", err);
@@ -195,6 +162,7 @@ void RenderWindow::initResources()
     VkPipelineInputAssemblyStateCreateInfo ia;
     memset(&ia, 0, sizeof(ia));
     ia.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    // Dag 220125
     ia.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     pipelineInfo.pInputAssemblyState = &ia;
 
@@ -210,7 +178,7 @@ void RenderWindow::initResources()
     VkPipelineRasterizationStateCreateInfo rs;
     memset(&rs, 0, sizeof(rs));
     rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rs.polygonMode = VK_POLYGON_MODE_FILL;
+    rs.polygonMode = VK_POLYGON_MODE_FILL;//VK_POLYGON_MODE_LINE;
     rs.cullMode = VK_CULL_MODE_NONE; // we want the back face as well
     rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rs.lineWidth = 1.0f;
@@ -262,11 +230,10 @@ void RenderWindow::initResources()
     if (fragShaderModule)
         mDeviceFunctions->vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
 
-    qDebug("\n ***************************** initResources finished ******************************************* \n");
-
-	getVulkanHWInfo(); // if you want to get info about the Vulkan hardware
+    getVulkanHWInfo(); // if you want to get info about the Vulkan hardware
 }
 
+// This function is called at startup and when the app window is resized
 void RenderWindow::initSwapChainResources()
 {
     qDebug("\n ***************************** initSwapChainResources ******************************************* \n");
@@ -278,23 +245,15 @@ void RenderWindow::initSwapChainResources()
     //find the size of the window
     const QSize sz = mWindow->swapChainImageSize();
 
-    //               vertical angle ,   aspect ratio                    near-  , far plane
-    /**PLAY WITH THIS**/
-    mProjectionMatrix.perspective(25.0f,          sz.width() / (float) sz.height(), 0.01f, 100.0f);
-    //Camera is -4 away from origo
-    /**PLAY WITH THIS**/
-    mProjectionMatrix.translate(0, 0, -4);
-
-    //Flip projection because of Vulkan's -Y axis
-    mProjectionMatrix.scale(1.0f, -1.0f, 1.0);
+    mCamera.perspective(25.0f, sz.width() / (float) sz.height(), 0.01f, 100.0f);
+    mCamera.translate(0, 0, -4); //Camera is -4 away from origo
 }
 
 void RenderWindow::startNextFrame()
 {
-    VkDevice dev = mWindow->device();
     VkCommandBuffer cmdBuf = mWindow->currentCommandBuffer();
     const QSize sz = mWindow->swapChainImageSize();
-
+    //qDebug() << "startNextFrame()";
     //Backtgound color of the render window - dark grey
     VkClearColorValue clearColor = {{ 0.3, 0.3, 0.3, 1 }};
 
@@ -316,12 +275,8 @@ void RenderWindow::startNextFrame()
     mDeviceFunctions->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     mDeviceFunctions->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
- 
-    VkDeviceSize vbOffset = 0;
 
-    //The second parameter here is the binding to the VertexInputBindingDescription,
-    //so it has to be the same number used there
-    mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &mBuffer, &vbOffset);
+    VkDeviceSize vbOffset = 0;
 
     VkViewport viewport{};
     viewport.x = viewport.y = 0;
@@ -338,31 +293,27 @@ void RenderWindow::startNextFrame()
     mDeviceFunctions->vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
     /********************************* Our draw call!: *********************************/
-
-	//Set model matrix for first triangle
-    //We make a temp of this to not mess up the original matrix
-    QMatrix4x4 tempMatrix = mProjectionMatrix;
-	tempMatrix.translate(-0.7f, 0, 0);
-    tempMatrix.rotate(mRotation, 0, 1, 0);
-  
-	//Push the model matrix to the shader and draw the triangle
-	setModelMatrix(tempMatrix);
-    mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
-
-	//Set model matrix for second triangle
-    tempMatrix = mProjectionMatrix;
-    tempMatrix.translate(0.7f, 0, 0);
-	tempMatrix.rotate(mRotation, 0, 0, 1);
-
-	setModelMatrix(tempMatrix);
-	mDeviceFunctions->vkCmdDraw(cmdBuf, 3, 1, 0, 0);
-
+    for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
+    {
+        mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &(*it)->mBuffer, &vbOffset);
+        setModelMatrix(mCamera.cMatrix() * (*it)->mMatrix);
+        mDeviceFunctions->vkCmdDraw(cmdBuf, (*it)->mVertices.size(), 1, 0, 0);
+    }
+    // Alternativt draw kall ved å traversere unordered map
+    /*    for (auto it=mMap.begin(); it!=mMap.end(); it++)
+    {
+        // first er name, second er VisualObject*
+        auto p = (*it).second;
+        mDeviceFunctions->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &p->mBuffer, &vbOffset);
+        setModelMatrix(mCamera.cMatrix() * p->mMatrix);
+        mDeviceFunctions->vkCmdDraw(cmdBuf, p->mVertices.size(), 1, 0, 0);
+    }
+*/
     mDeviceFunctions->vkCmdEndRenderPass(cmdBuf);
-
+    mObjects.at(1)->rotate(1.0f, 0.0f, 0.0f, 1.0f);
+    //qDebug() << mObjects.at(1)->mMatrix;
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
-
-    mRotation += 1.0f; //set for next frame
 }
 
 VkShaderModule RenderWindow::createShader(const QString &name)
@@ -397,6 +348,54 @@ void RenderWindow::setModelMatrix(QMatrix4x4 modelMatrix)
 
 	mDeviceFunctions->vkCmdPushConstants(mWindow->currentCommandBuffer(), mPipelineLayout, 
         VK_SHADER_STAGE_VERTEX_BIT, 0, 16 * sizeof(float), modelMatrix.constData());
+}
+
+// Dag 240125
+// This function contains some of the body of our former RenderWindow::initResources() function
+// If we want to have more objects, we need to initialize buffers for each of them
+// This version is not a version with encapsulation
+// We use the VisualObject members mBuffer and mBufferMemory
+void RenderWindow::createBuffer(VkDevice logicalDevice, const VkDeviceSize uniAlign,
+                                VisualObject* visualObject, VkBufferUsageFlags usage)
+{
+    VkBufferCreateInfo bufferInfo{};
+    memset(&bufferInfo, 0, sizeof(bufferInfo)); //Clear out the memory
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; // Set the structure type
+
+    VkDeviceSize vertexAllocSize = aligned(visualObject->getVertices().size()*sizeof(Vertex), uniAlign);
+    bufferInfo.size = vertexAllocSize; //One vertex buffer (we don't use Uniform buffer in this example)
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT; // Set the usage vertex buffer (not using Uniform buffer in this example)
+
+    VkResult err = mDeviceFunctions->vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &visualObject->mBuffer);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to create buffer: %d", err);
+
+    VkMemoryRequirements memReq;
+    mDeviceFunctions->vkGetBufferMemoryRequirements(logicalDevice, visualObject->mBuffer, &memReq);
+
+    VkMemoryAllocateInfo memAllocInfo = {
+        VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        nullptr,
+        memReq.size,
+        mWindow->hostVisibleMemoryIndex()
+    };
+
+    err = mDeviceFunctions->vkAllocateMemory(logicalDevice, &memAllocInfo, nullptr, &visualObject->mBufferMemory);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to allocate memory: %d", err);
+
+    err = mDeviceFunctions->vkBindBufferMemory(logicalDevice, visualObject->mBuffer, visualObject->mBufferMemory, 0);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to bind buffer memory: %d", err);
+
+    quint8* p{nullptr};
+    err = mDeviceFunctions->vkMapMemory(logicalDevice, visualObject->mBufferMemory, 0, memReq.size, 0, reinterpret_cast<void **>(&p));
+    if (err != VK_SUCCESS)
+        qFatal("Failed to map memory: %d", err);
+
+    memcpy(p, visualObject->getVertices().data(), visualObject->getVertices().size()*sizeof(Vertex));
+
+    mDeviceFunctions->vkUnmapMemory(logicalDevice, visualObject->mBufferMemory);
 }
 
 void RenderWindow::getVulkanHWInfo()
@@ -481,14 +480,28 @@ void RenderWindow::releaseResources()
         mDescriptorPool = VK_NULL_HANDLE;
     }
 
-    if (mBuffer) {
-        mDeviceFunctions->vkDestroyBuffer(dev, mBuffer, nullptr);
-        mBuffer = VK_NULL_HANDLE;
+    if (mVisualObject.mBuffer) {
+        mDeviceFunctions->vkDestroyBuffer(dev, mVisualObject.mBuffer, nullptr);
+        mVisualObject.mBuffer = VK_NULL_HANDLE;
     }
 
-    if (mBufferMemory) {
-        mDeviceFunctions->vkFreeMemory(dev, mBufferMemory, nullptr);
-        mBufferMemory = VK_NULL_HANDLE;
+    if (mVisualObject.mBufferMemory) {
+        mDeviceFunctions->vkFreeMemory(dev, mVisualObject.mBufferMemory, nullptr);
+        mVisualObject.mBufferMemory = VK_NULL_HANDLE;
+    }
+    // Samme for alle objekter i container
+    for (auto it=mObjects.begin(); it!=mObjects.end(); it++) {
+        if ((*it)->mBuffer) {
+            mDeviceFunctions->vkDestroyBuffer(dev, (*it)->mBuffer, nullptr);
+            (*it)->mBuffer = VK_NULL_HANDLE;
+        }
+    }
+    for (auto it=mObjects.begin(); it!=mObjects.end(); it++) {
+        if ((*it)->mBufferMemory) {
+            mDeviceFunctions->vkFreeMemory(dev, (*it)->mBufferMemory, nullptr);
+            (*it)->mBuffer = VK_NULL_HANDLE;
+        }
+
     }
 }
 
