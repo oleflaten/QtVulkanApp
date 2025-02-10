@@ -2,14 +2,16 @@
 #define RENDERWINDOW_H
 
 #include <QVulkanWindow>
-#include "vktrianglemesh.h"
+#include <vector>
+#include <unordered_map>
+#include "VkCamera.h"
+#include "VkTriangle.h"
+#include "VkTrianglesurface.h"
+#include "VisualObject.h"
+#include "VkTriangleSurface.h"
 
 class RenderWindow : public QVulkanWindowRenderer
 {
-private:
-    void updateUniformBuffer(const QMatrix4x4& modelMatrix, int currentFrame);
-    VKTriangleMesh mMesh;
-
 public:
     RenderWindow(QVulkanWindow *w, bool msaa = false);
 
@@ -35,13 +37,18 @@ public:
     //Get Vulkan info - just for fun
     void getVulkanHWInfo();
 
+    std::vector<VisualObject*>& getObjects() { return mObjects; }
+    std::unordered_map<std::string, VisualObject*>& getMap() { return mMap; }
+
 protected:
 
     //Creates the Vulkan shader module from the precompiled shader files in .spv format
     VkShaderModule createShader(const QString &name);
 
+	void setModelMatrix(QMatrix4x4 modelMatrix);
+
     //The ModelViewProjection MVP matrix
-    QMatrix4x4 mProj;
+    QMatrix4x4 mProjectionMatrix;
     //Rotation angle of the triangle
     float mRotation{ 0.0f };
 
@@ -49,17 +56,36 @@ protected:
     QVulkanWindow* mWindow{ nullptr };
     QVulkanDeviceFunctions *mDeviceFunctions{ nullptr };
 
-    VkDeviceMemory mBufMem = VK_NULL_HANDLE;
-    VkBuffer mBuf = VK_NULL_HANDLE;
-    VkDescriptorBufferInfo mUniformBufInfo[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkDeviceMemory mBufferMemory{ VK_NULL_HANDLE };
+    VkBuffer mBuffer{ VK_NULL_HANDLE };
+ 
+    VkDescriptorPool mDescriptorPool{ VK_NULL_HANDLE };
+    VkDescriptorSetLayout mDescriptorSetLayout{ VK_NULL_HANDLE };
+    VkDescriptorSet mDescriptorSet[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT]{ VK_NULL_HANDLE };
 
-    VkDescriptorPool mDescPool = VK_NULL_HANDLE;
-    VkDescriptorSetLayout mDescSetLayout = VK_NULL_HANDLE;
-    VkDescriptorSet mDescSet[QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT];
+    VkPipelineCache mPipelineCache{ VK_NULL_HANDLE };
+    VkPipelineLayout mPipelineLayout{ VK_NULL_HANDLE };
+    VkPipeline mPipeline{ VK_NULL_HANDLE };
+    VkPipelineLayout mPipelineLayout2{ VK_NULL_HANDLE };
+    VkPipeline mPipeline2{ VK_NULL_HANDLE };
 
-    VkPipelineCache mPipelineCache = VK_NULL_HANDLE;
-    VkPipelineLayout mPipelineLayout = VK_NULL_HANDLE;
-    VkPipeline mPipeline = VK_NULL_HANDLE;
+private:
+    friend class VulkanWindow;
+    VkTriangle mTriangle;
+    VkTriangleSurface mSurface;
+    VisualObject mVisualObject;
+    std::vector<VisualObject*> mObjects;
+    std::unordered_map<std::string, VisualObject*> mMap;    // alternativ container
+
+    void createBuffer(VkDevice logicalDevice,
+                      const VkDeviceSize uniAlign, VisualObject* visualObject,
+                      VkBufferUsageFlags usage=VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    //VkBuffer& buffer,
+    //VkDeviceMemory& bufferMemory) ;
+    VkCamera mCamera;
+    //VkDevice logicalDevice;
+    //VkPipelineInputAssemblyStateCreateInfo ia;
+    //VkGraphicsPipelineCreateInfo pipelineInfo;
 };
 
 #endif // RENDERWINDOW_H

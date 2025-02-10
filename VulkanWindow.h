@@ -2,6 +2,7 @@
 #define VULKANWINDOW_H
 
 #include <QVulkanWindow>
+#include "VisualObject.h"
 
 /*The QVulkanWindow subclass reimplements the factory function QVulkanWindow::createRenderer().
 This returns a new instance of the QVulkanWindowRenderer subclass.
@@ -17,6 +18,8 @@ public:
     VulkanWindow();
 
     QVulkanWindowRenderer* createRenderer() override;
+    QVulkanWindowRenderer* getRenderWindow() const { return mRenderWindow; }
+    void setSelectedObject(VisualObject* object) { mSelectedObject = object; }
 
 signals:
     void frameQueued(int colorValue);
@@ -28,10 +31,16 @@ protected:
     // these functions in the cpp-file to use them of course!)
     //
     //    void mousePressEvent(QMouseEvent *event) override{}
-    //    void mouseMoveEvent(QMouseEvent *event) override{}
+    void mouseMoveEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;              //the only one we use now
     //    void keyReleaseEvent(QKeyEvent *event) override{}
     //    void wheelEvent(QWheelEvent *event) override{}
 
+    QVulkanWindowRenderer* mRenderWindow{ nullptr };
+    VisualObject* mSelectedObject{ nullptr };
+    int mIndex{0};
+
+private:
+    int mMouseXlast{0}; //for mouse rotate input
 };
 #endif // VULKANWINDOW_H
