@@ -1,10 +1,16 @@
-#include "vktriangle.h"
+#include "VkTriangle.h"
+#include "Vertex.h"
+#include "VisualObject.h"
 
-VKTriangle::VKTriangle(){}
-
-VKTriangle::VKTriangle(VKVertex vertex1, VKVertex vertex2, VKVertex vertex3)
+VkTriangle::VkTriangle() : VisualObject()
 {
-    mVertices[0] = vertex1;
-    mVertices[1] = vertex2;
-    mVertices[2] = vertex3;
+    //Vertex v1{-0.5f,   0.0f,  0.0f,   1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    //Vertex v2{-0.5f,   -0.5f,  0.0f,   0.0f, 1.0f, 0.0f, 0.0f, 0.0f};
+    //Vertex v3{0.0f,   0.0f,  0.0f,   0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+
+    mVertices.push_back(Vertex{-0.5f,   0.0f,  0.0f,   1.0f, 0.0f, 0.0f, 0.0f, 0.0f});
+    mVertices.push_back(Vertex{-0.5f,   -0.5f,  0.0f,   0.0f, 1.0f, 0.0f, 0.0f, 0.0f});
+    mVertices.push_back(Vertex{0.0f,   0.0f,  0.0f,   0.0f, 0.0f, 1.0f, 0.0f, 0.0f});
+
+    mMatrix.translate(-0.25f, 0, 0); // fra startNextFrame
 }
