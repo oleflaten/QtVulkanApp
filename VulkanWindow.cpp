@@ -10,6 +10,11 @@ QVulkanWindowRenderer* VulkanWindow::createRenderer()
 {
     //Makes a new instance of the RenderWindow (our Renderer) class
     mRenderer = new Renderer(this, true); // last true == try MSAA
+
+    //Camera is made when the renderer is made, so we know it is valid now
+	//We set values on the camera a lot from this class, so it is convenient to have a pointer to it
+	mCamera = &dynamic_cast<Renderer*>(mRenderer)->mCamera;
+
     return mRenderer;
 }
 
@@ -51,35 +56,35 @@ void VulkanWindow::keyPressEvent(QKeyEvent *event)
         mIndex = 1;
 
     //****** Camera control ******** //
-    if(event->key() == Qt::Key_W)
-    {
-        dynamic_cast<Renderer*>(mRenderer)->mCamera.translate(0.0f, 0.0f, mCameraSpeed);
-    }
-    if(event->key() == Qt::Key_S)
-    {
-        dynamic_cast<Renderer*>(mRenderer)->mCamera.translate(0.0f, 0.0f, -mCameraSpeed);
-    }
-    if(event->key() == Qt::Key_A)
-    {
-        dynamic_cast<Renderer*>(mRenderer)->mCamera.translate(mCameraSpeed, 0.0f, 0.0f);
-    }
-    if(event->key() == Qt::Key_D)
-    {
-        dynamic_cast<Renderer*>(mRenderer)->mCamera.translate(-mCameraSpeed, 0.0f, 0.0f);
-    }
-    if(event->key() == Qt::Key_Q)   //Down
-    {
-        dynamic_cast<Renderer*>(mRenderer)->mCamera.translate(0.0f, mCameraSpeed, 0.0f);
-    }
-    if(event->key() == Qt::Key_E)   //Up
-    {
-        dynamic_cast<Renderer*>(mRenderer)->mCamera.translate(0.0f, -mCameraSpeed, 0.0f);
-    }
+    //if(event->key() == Qt::Key_W)
+    //{
+    //    mCamera->translate(0.0f, 0.0f, mCameraSpeed);
+    //}
+    //if(event->key() == Qt::Key_S)
+    //{
+    //    mCamera->translate(0.0f, 0.0f, -mCameraSpeed);
+    //}
+    //if(event->key() == Qt::Key_A)
+    //{
+    //    mCamera->translate(mCameraSpeed, 0.0f, 0.0f);
+    //}
+    //if(event->key() == Qt::Key_D)
+    //{
+    //    mCamera->translate(-mCameraSpeed, 0.0f, 0.0f);
+    //}
+    //if(event->key() == Qt::Key_Q)   //Down
+    //{
+    //    mCamera->translate(0.0f, mCameraSpeed, 0.0f);
+    //}
+    //if(event->key() == Qt::Key_E)   //Up
+    //{
+    //    mCamera->translate(0.0f, -mCameraSpeed, 0.0f);
+    //}
     /**********************/
 
     if(event->key() == Qt::Key_R)
     {
-        dynamic_cast<Renderer*>(mRenderer)->mCamera.rotate(45, 0.0f, 0.0f, 1.0f);
+        mCamera->rotate(45, 0.0f, 0.0f, 1.0f);
     }
 
     //    You get the keyboard input like this
@@ -220,16 +225,38 @@ void VulkanWindow::mouseReleaseEvent(QMouseEvent *event)
 
 void VulkanWindow::mouseMoveEvent(QMouseEvent *event)
 {
-    // qDebug("X: %d, mouselast: %d" , event->pos().x(), mMouseXlast);
-
     if (mInput.RMB)
     {
-        if(event->pos().x() - mMouseXlast > 0)
-            dynamic_cast<Renderer*>(mRenderer)->mCamera.rotate(1.0f, 0.0f, 1.0f, 0.0f);
+        //Using mMouseXYlast as deltaXY so we don't need extra variables
+        mMouseXlast = event->pos().x() - mMouseXlast;
+        mMouseYlast = event->pos().y() - mMouseYlast;
 
-        if(event->pos().x() - mMouseXlast < 0)
-            dynamic_cast<Renderer*>(mRenderer)->mCamera.rotate(-1.0f, 0.0f, 1.0f, 0.0f);
+        if (mMouseXlast != 0)
+            dynamic_cast<Renderer*>(mRenderer)->mCamera.yaw(mCameraRotateSpeed * mMouseXlast);
+        if (mMouseYlast != 0)
+            dynamic_cast<Renderer*>(mRenderer)->mCamera.pitch(mCameraRotateSpeed * mMouseYlast);
+    }
+    mMouseXlast = event->pos().x();
+    mMouseYlast = event->pos().y();
+}
 
-        mMouseXlast = event->pos().x();
+void VulkanWindow::handleInput()
+{
+    //Camera
+    mCamera->setSpeed(0.f);  //cancel last frame movement
+    if (mInput.RMB)
+    {
+        if (mInput.W)
+            mCamera->setSpeed(-mCameraSpeed);
+        if (mInput.S)
+            mCamera->setSpeed(mCameraSpeed);
+        if (mInput.D)
+            mCamera->moveRight(mCameraSpeed);
+        if (mInput.A)
+            mCamera->moveRight(-mCameraSpeed);
+        if (mInput.Q)
+            mCamera->updateHeigth(-mCameraSpeed);
+        if (mInput.E)
+            mCamera->updateHeigth(mCameraSpeed);
     }
 }

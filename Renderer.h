@@ -55,6 +55,8 @@ protected:
     QVulkanWindow* mWindow{ nullptr };
     QVulkanDeviceFunctions *mDeviceFunctions{ nullptr };
 
+	class VulkanWindow *mVulkanWindow{ nullptr };
+
     VkDeviceMemory mBufferMemory{ VK_NULL_HANDLE };
     VkBuffer mBuffer{ VK_NULL_HANDLE };
  
@@ -69,7 +71,6 @@ protected:
     VkPipeline mPipeline2{ VK_NULL_HANDLE };
 
 private:
-    friend class VulkanWindow;
     Triangle mTriangle;
     TriangleSurface mSurface;
     VisualObject mVisualObject;
@@ -81,6 +82,8 @@ private:
                       VkBufferUsageFlags usage=VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     Camera mCamera;
+
+    friend class VulkanWindow;
 };
 
 #endif // RENDERER_H

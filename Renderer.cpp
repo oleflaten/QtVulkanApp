@@ -2,6 +2,7 @@
 #include "WorldAxis.h"
 #include <QVulkanFunctions>
 #include <QFile>
+#include "VulkanWindow.h"
 
 //Utility function for alignment:
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
@@ -42,7 +43,10 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
         mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
 
 	//Inital position of the camera
-    mCamera.translate(-1, -1, -4);
+    mCamera.setPosition(QVector3D( 1.0, 1.0, 4.0));
+
+	//OEF: need access to our VulkanWindow so making a convenience pointer
+	mVulkanWindow = dynamic_cast<VulkanWindow*>(w);
 }
 
 void Renderer::initResources()
@@ -256,6 +260,11 @@ void Renderer::initSwapChainResources()
 
 void Renderer::startNextFrame()
 {
+	//OEF: Handeling input from keyboard and mouse is done in VulkanWindow
+	//Has to be done each frame to get smooth movement
+    mVulkanWindow->handleInput();
+    mCamera.update();
+
     VkCommandBuffer cmdBuf = mWindow->currentCommandBuffer();
     const QSize sz = mWindow->swapChainImageSize();
     //qDebug() << "startNextFrame()";
