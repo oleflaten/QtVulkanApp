@@ -7,12 +7,20 @@ layout(location = 0) out vec3 v_color;
 
 layout(push_constant) uniform buf {
     mat4 mvp;
-} ubuf;
+    vec3 objectcolor;
+} ubuffer;
 
 out gl_PerVertex { vec4 gl_Position; };
 
 void main()
 {
-    v_color = color;
-    gl_Position = ubuf.mvp * position;
+    //if objectcolor is not set (== black), use vertex color
+    float test = ubuffer.objectcolor.r + ubuffer.objectcolor.g +ubuffer.objectcolor.b;
+    if (test < 0.001)
+        v_color = color;
+    //else use objectcolor
+    else
+        v_color = ubuffer.objectcolor;
+
+    gl_Position = ubuffer.mvp * position;
 }

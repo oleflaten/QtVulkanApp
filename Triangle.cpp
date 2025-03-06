@@ -9,5 +9,6 @@ Triangle::Triangle() : VisualObject()
     mVertices.push_back(Vertex{0.0f,   0.0f,  0.0f,   0.0f, 0.0f, 1.0f, 0.0f, 0.0f});
 
 	//Temporary positioning
+    mMatrix.setToIdentity();
     mMatrix.translate(-0.25f, 0, 0);
 }

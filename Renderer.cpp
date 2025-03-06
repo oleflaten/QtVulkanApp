@@ -26,14 +26,17 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
             }
         }
     }
-    // Dag 230125
+
     mObjects.push_back(new Triangle());
     mObjects.push_back((new TriangleSurface()));
     mObjects.push_back((new WorldAxis()));
-    // Dag 030225
+
     mObjects.at(0)->setName("tri");
+    mObjects.at(0)->mColor = {0.2, 0.1, 0.8};
     mObjects.at(1)->setName("quad");
+    mObjects.at(1)->mColor = {0.9, 0.1, 0.8};
     mObjects.at(2)->setName("axis");
+    mObjects.at(2)->mColor = {0.0, 0.0, 0.0};
 
     // **************************************
     // Legger inn objekter i map
@@ -110,9 +113,9 @@ void Renderer::initResources()
     // Pipeline layout
     // Set up the push constant info
     VkPushConstantRange pushConstantRange{};    //Updated to more common way to write it
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = 16 * sizeof(float); // 16 floats for the model matrix
+    pushConstantRange.size = 19 * sizeof(float); // 16 floats for the model matrix + 3 for color
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -266,13 +269,13 @@ void Renderer::startNextFrame()
     /********************************* Our draw call!: *********************************/
     for (std::vector<VisualObject*>::iterator it=mObjects.begin(); it!=mObjects.end(); it++)
     {
-         // if ((*it)->drawType == 0)
+         if ((*it)->drawType == 0)
             mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline1);
-         // else
-         //    mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline2);
+         else
+            mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline2);
 
         mDeviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(*it)->mBuffer, &vbOffset);
-        setModelMatrix(mCamera.cMatrix() * (*it)->mMatrix);
+        pushConstants(mCamera.cMatrix() * (*it)->mMatrix, (*it)->mColor);
         mDeviceFunctions->vkCmdDraw(commandBuffer, (*it)->mVertices.size(), 1, 0, 0);
     }
     /***************************************/
@@ -311,11 +314,16 @@ VkShaderModule Renderer::createShader(const QString &name)
     return shaderModule;
 }
 
-void Renderer::setModelMatrix(QMatrix4x4 modelMatrix)
+void Renderer::pushConstants(QMatrix4x4 modelMatrix, QVector3D color)
 {
-
+    float tempArray[19]{};
+    QMatrix4x4 tempMatrix = modelMatrix.transposed();
+    tempMatrix.copyDataTo(tempArray);
+    tempArray[16] = color.x();
+    tempArray[17] = color.y();
+    tempArray[18] = color.z();
 	mDeviceFunctions->vkCmdPushConstants(mWindow->currentCommandBuffer(), mPipelineLayout, 
-        VK_SHADER_STAGE_VERTEX_BIT, 0, 16 * sizeof(float), modelMatrix.constData());
+        VK_SHADER_STAGE_VERTEX_BIT, 0, 19 * sizeof(float), tempArray);
 }
 
 void Renderer::setRenderPassParameters(VkCommandBuffer commandBuffer)

@@ -44,7 +44,7 @@ protected:
     //Creates the Vulkan shader module from the precompiled shader files in .spv format
     VkShaderModule createShader(const QString &name);
 
-	void setModelMatrix(QMatrix4x4 modelMatrix);
+    void pushConstants(QMatrix4x4 modelMatrix, QVector3D color);
 
 	void setRenderPassParameters(VkCommandBuffer commandBuffer);
 

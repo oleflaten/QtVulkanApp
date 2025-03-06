@@ -21,7 +21,8 @@ public:
     VkBuffer mBuffer{ VK_NULL_HANDLE };
     VkPrimitiveTopology mTopology { VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST };
 
-    QMatrix4x4 mMatrix;
+    QMatrix4x4 mMatrix{};
+    QVector3D mColor{0.f, 0.f, 0.f};
 
 	int drawType{ 0 }; // 0 = fill, 1 = line
 
