@@ -60,7 +60,7 @@ void Renderer::initResources()
     change so one buffer is sufficient regardless of the value of
     QVulkanWindow::CONCURRENT_FRAME_COUNT. */
 
-    const int concurrentFrameCount = mWindow->concurrentFrameCount(); // 2 on Oles Machine
+    // const int concurrentFrameCount = mWindow->concurrentFrameCount(); // 2 on Oles Machine
     const VkPhysicalDeviceLimits *pdevLimits = &mWindow->physicalDeviceProperties()->limits;
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
     qDebug("uniform buffer offset alignment is %u", (uint)uniAlign); //64 on Oles machine
@@ -75,7 +75,7 @@ void Renderer::initResources()
 	VkVertexInputBindingDescription vertexBindingDesc{};    //Updated to a more common way to write it
 	vertexBindingDesc.binding = 0;
 	vertexBindingDesc.stride = sizeof(Vertex);
-	vertexBindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    vertexBindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;      //always this when not using instanced data
 
     /********************************* Shader bindings: *********************************/
     //Descritpion of the attributes used for vertices in the shader
@@ -266,10 +266,10 @@ void Renderer::startNextFrame()
     /********************************* Our draw call!: *********************************/
     for (std::vector<VisualObject*>::iterator it=mObjects.begin(); it!=mObjects.end(); it++)
     {
-		if ((*it)->drawType == 0)
-			mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline1);
-		else
-			mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline2);
+         // if ((*it)->drawType == 0)
+            mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline1);
+         // else
+         //    mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline2);
 
         mDeviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(*it)->mBuffer, &vbOffset);
         setModelMatrix(mCamera.cMatrix() * (*it)->mMatrix);
@@ -297,8 +297,7 @@ VkShaderModule Renderer::createShader(const QString &name)
     QByteArray blob = file.readAll();
     file.close();
 
-    VkShaderModuleCreateInfo shaderInfo;
-    memset(&shaderInfo, 0, sizeof(shaderInfo));
+    VkShaderModuleCreateInfo shaderInfo{};
     shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shaderInfo.codeSize = blob.size();
     shaderInfo.pCode = reinterpret_cast<const uint32_t *>(blob.constData());
