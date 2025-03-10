@@ -1,6 +1,7 @@
 #include "RenderWindow.h"
 #include <QVulkanFunctions>
 #include <QFile>
+#include "beziercurve.h"
 
 //Utility function for alignment:
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
@@ -42,6 +43,16 @@ RenderWindow::RenderWindow(QVulkanWindow *w, bool msaa)
 void RenderWindow::initResources()
 {
     qDebug("\n ***************************** initResources ******************************************* \n");
+
+    auto bezier = new BezierCurve();
+
+    bezier->mVertices.push_back(Vertex{0.f,0.f,0.f,1.f,0.f,0.f,0.f,0.f});
+    bezier->mVertices.push_back(Vertex{1.f,0.f,0.f,0.f,1.f,0.f,0.f,0.f});
+    bezier->mVertices.push_back(Vertex{1.f,1.f,0.f,1.f,1.f,0.f,0.f,0.f});
+
+    auto interp = bezier->CalculateInterpolation(0.5f);
+
+    //qDebug("Interpolation point is at %f, %f, %f", interp.x(), interp.y(), interp.z());
 
     VkDevice logicalDevice = mWindow->device();
     mDeviceFunctions = mWindow->vulkanInstance()->deviceFunctions(logicalDevice);
