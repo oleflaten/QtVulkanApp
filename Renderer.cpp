@@ -443,6 +443,11 @@ void Renderer::getVulkanHWInfo()
     const QList<int> sampleCounts = mWindow->supportedSampleCounts();
     for (int count : sampleCounts)
         info += QLatin1Char(' ') + QString::number(count);
+
+    // Get the maximum size of the push constants buffer for this device
+    uint32_t maxPushConstantsSize = props.limits.maxPushConstantsSize;
+    info += QString::asprintf("\nMaximum push constants size: %u", maxPushConstantsSize);
+
     info += QLatin1Char('\n');
 
     qDebug(info.toUtf8().constData());
