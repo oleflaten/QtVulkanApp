@@ -118,7 +118,7 @@ void Renderer::initResources()
     pushConstantRange[0].size = 16 * sizeof(float); // 16 floats for the model matrix
 
     pushConstantRange[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushConstantRange[1].offset = 0;
+    pushConstantRange[1].offset = 16 * sizeof(float);             //The color comes after the 16 floats of the matrix
     pushConstantRange[1].size = 3 * sizeof(float); // 3 floats for the color
 
 
