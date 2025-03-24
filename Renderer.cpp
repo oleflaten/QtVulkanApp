@@ -31,9 +31,8 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
     // **************************************
     // Legger inn objekter i map
     // **************************************
-    //std::string navn{"navn"}; // Skal VisualObject klassen få en navn-variabel?
-    for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
-        mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
+    // for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
+        // mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
 
 	//Inital position of the camera
     mCamera.setPosition(QVector3D(-1, -1, -4));
@@ -53,7 +52,7 @@ void Renderer::initResources()
     uint32_t graphicsQueueFamilyIndex = mWindow->graphicsQueueFamilyIndex();
     mDeviceFunctions->vkGetDeviceQueue(logicalDevice, graphicsQueueFamilyIndex, 0, &mGraphicsQueue);
 
-    const int concurrentFrameCount = mWindow->concurrentFrameCount(); // 2 on Oles Machine
+    //const int concurrentFrameCount = mWindow->concurrentFrameCount(); // 2 on Oles Machine
     const VkPhysicalDeviceLimits *pdevLimits = &mWindow->physicalDeviceProperties()->limits;
     const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
     qDebug("Uniform buffer offset alignment is %u", (uint)uniAlign); //64 on Oles machine
