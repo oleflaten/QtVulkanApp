@@ -302,8 +302,7 @@ VkShaderModule Renderer::createShader(const QString &name)
     QByteArray blob = file.readAll();
     file.close();
 
-    VkShaderModuleCreateInfo shaderInfo;
-    memset(&shaderInfo, 0, sizeof(shaderInfo));
+    VkShaderModuleCreateInfo shaderInfo{};
     shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shaderInfo.codeSize = blob.size();
     shaderInfo.pCode = reinterpret_cast<const uint32_t *>(blob.constData());
