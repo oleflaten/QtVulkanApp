@@ -278,6 +278,7 @@ void Renderer::startNextFrame()
     mDeviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, 
         &mDescriptorSet, 0, nullptr);
 
+    //NEW CODE WITH UNIFORM EXAMPLE:
     setViewProjectionMatrix();   //Update the view and projection matrix in the Uniform
 
     /********************************* Our draw call!: *********************************/
@@ -289,8 +290,8 @@ void Renderer::startNextFrame()
 		else
 			mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline2);
 
-        QMatrix4x4 mvp = mCamera.projectionMatrix() * mCamera.viewMatrix() * (*it)->getMatrix();
-        setModelMatrix((*it)->getMatrix()); //mvp);             //
+        setModelMatrix((*it)->getMatrix()); // only Model matrix - pr model);
+
         mDeviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(*it)->getVBuffer(), &vbOffset);
 		//Check if we have an index buffer - if so, use Indexed draw
         if ((*it)->getIndices().size() > 0)
@@ -338,17 +339,21 @@ VkShaderModule Renderer::createShader(const QString &name)
     return shaderModule;
 }
 
+//Uses pushconstants to update the Model Matrix in the shader
 void Renderer::setModelMatrix(QMatrix4x4 modelMatrix)
 {
 	mDeviceFunctions->vkCmdPushConstants(mWindow->currentCommandBuffer(), mPipelineLayout, 
 		VK_SHADER_STAGE_VERTEX_BIT, 0, 16 * sizeof(float), modelMatrix.constData());    //Column-major matrix
 }
 
+//Uses Uniform Buffers to transfer the View and Projection matrix - and other data you want to transfer:
 void Renderer::setViewProjectionMatrix()
 {
     memcpy(mUniformBufferLocation, mCamera.viewMatrix().constData(), 64);
+
     QMatrix4x4 temp = mCamera.projectionMatrix();
     temp = temp * mWindow->clipCorrectionMatrix();  //Correcting for Vulkans -Y
+
 	//Adding 64 bytes to the uniform buffer location to get to the projection matrix position
     memcpy(static_cast<char*>(mUniformBufferLocation) + 64, temp.constData(), 64);
 
@@ -364,15 +369,6 @@ void Renderer::setViewProjectionMatrix()
       createDescriptorSet() - bufferInfo.range
     and UPDATE THE SIZE of the buffer if you add more data!!!
     */
-
-    //From Qt Hello Cube example
-    // Vertex shader uniforms
-    //memcpy(p, vp.constData(), 64);
-    //memcpy(p + 64, model.constData(), 64);
-    //const float* mnp = modelNormal.constData();
-    //memcpy(p + 128, mnp, 12);
-    //memcpy(p + 128 + 16, mnp + 3, 12);
-    //memcpy(p + 128 + 32, mnp + 6, 12);
 }
 
 void Renderer::setRenderPassParameters(VkCommandBuffer commandBuffer)
@@ -592,6 +588,7 @@ void Renderer::createDescriptorSetLayouts()
         qFatal("Failed to create DescriptorSetLayout: %d", err);
 }
 
+//Creates the actual Uniform Buffer - one important thing being the size of it
 void Renderer::createUniformBuffer()
 {
     VkDeviceSize bufferSize = 64 + 64 + 12;      // two 4x4 matrices + 12 for color
@@ -606,6 +603,7 @@ void Renderer::createUniformBuffer()
 }
 
 //Allocate a descriptor set and update it to point to the uniform buffer
+//Also gives the Buffer size so this has to match the buffer made.
 void Renderer::createDescriptorSet()
 {
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -635,7 +633,7 @@ void Renderer::createDescriptorSet()
     mDeviceFunctions->vkUpdateDescriptorSets(mWindow->device(), 1, &descriptorWrite, 0, nullptr);
 }
 
-//Create a descriptor pool to allocate descriptor sets.
+//Create a descriptor pool to allocate descriptor sets - for the Uniform Buffers.
 void Renderer::createDescriptorPool()
 {
     VkDescriptorPoolSize poolSize{};
