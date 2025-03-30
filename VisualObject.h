@@ -19,6 +19,7 @@ public:
     inline std::vector<Vertex> getVertices() { return mVertices; }
     inline VkBuffer& getVBuffer() { return mVertexBuffer.mBuffer; }
     inline VkDeviceMemory& getVBufferMemory() { return mVertexBuffer.mBufferMemory; }
+    inline VkDeviceMemory& getIBufferMemory() { return mIndexBuffer.mBufferMemory; }
     inline void setVBuffer(VkBuffer bufferIn) { mVertexBuffer.mBuffer = bufferIn; }
     inline void setVBufferMemory(VkDeviceMemory bufferMemoryIn) { mVertexBuffer.mBufferMemory = bufferMemoryIn; }
     inline VkBuffer& getIBuffer() { return mIndexBuffer.mBuffer; }
