@@ -24,7 +24,9 @@ public:
 	inline QMatrix4x4 projectionMatrix() const { return mProjectionMatrix; }
 
     void update();
-	void setPosition(const QVector3D& position);
+    void setPosition(const QVector3D& position);
+    inline QVector3D position() const { return mPosition; }
+
     void pitch(float degrees);
     void yaw(float degrees);
 

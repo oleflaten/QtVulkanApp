@@ -19,11 +19,14 @@ qt_add_executable(QtVulkanApp
     Input.h
     WorldAxis.h WorldAxis.cpp
     Utilities.h
+    Light.h Light.cpp
 )
 # Define the shader files
 set(SHADER_FILES
-    color.frag
     color.vert
+    color.frag
+    phong.vert
+    phong.frag
 )
 
 # Add the shader files to the project
@@ -51,9 +54,19 @@ set_source_files_properties("color_vert.spv"
     PROPERTIES QT_RESOURCE_ALIAS "color_vert.spv"
 )
 
+set_source_files_properties("phong_frag.spv"
+    PROPERTIES QT_RESOURCE_ALIAS "phong_frag.spv"
+)
+
+set_source_files_properties("phong_vert.spv"
+    PROPERTIES QT_RESOURCE_ALIAS "phong_vert.spv"
+)
+
 set(QtVulkanApp_resource_files
     "color_frag.spv"
     "color_vert.spv"
+    "phong_frag.spv"
+    "phong_vert.spv"
 )
 
 qt_add_resources(QtVulkanApp "QtVulkanApp"
@@ -78,22 +91,38 @@ install(SCRIPT ${deploy_script})
 
 # auto-compilation of the shaders:
 add_custom_target(
-    PreBuildCommandF ALL
+    PreBuildCommandCF ALL
     COMMAND glslc color.frag -o color_frag.spv
 #   This version includes the debug info in the compiled shader - good for RenderDoc
 #   COMMAND glslangValidator -g -V -o color_frag.spv color.frag
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Compiling fragment shader"
+    COMMENT "Compiling color fragment shader"
 )
 add_custom_target(
-    PreBuildCommandV ALL
+    PreBuildCommandCV ALL
     COMMAND glslc color.vert -o color_vert.spv
 #   COMMAND glslangValidator -g -V -o color_vert.spv color.vert
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Compiling vertex shader"
+    COMMENT "Compiling color vertex shader"
+)
+add_custom_target(
+    PreBuildCommandPF ALL
+    COMMAND glslc phong.frag -o phong_frag.spv
+#   This version includes the debug info in the compiled shader - good for RenderDoc
+#   COMMAND glslangValidator -g -V -o phong_frag.spv phong.frag
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Compiling phong fragment shader"
+)
+add_custom_target(
+    PreBuildCommandPV ALL
+    COMMAND glslc phong.vert -o phong_vert.spv
+#   COMMAND glslangValidator -g -V -o phong_vert.spv phong.vert
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Compiling phong vertex shader"
 )
 
-add_dependencies(QtVulkanApp PreBuildCommandF)
-add_dependencies(QtVulkanApp PreBuildCommandV)
-
+add_dependencies(QtVulkanApp PreBuildCommandCF)
+add_dependencies(QtVulkanApp PreBuildCommandCV)
+add_dependencies(QtVulkanApp PreBuildCommandPF)
+add_dependencies(QtVulkanApp PreBuildCommandPV)
 

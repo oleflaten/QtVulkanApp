@@ -62,10 +62,10 @@ protected:
     VkDeviceMemory mBufferMemory{ VK_NULL_HANDLE };
     VkBuffer mBuffer{ VK_NULL_HANDLE };
  
-    VkDescriptorPool mDescriptorPool{ VK_NULL_HANDLE };
-    VkDescriptorSetLayout mDescriptorSetLayout{ VK_NULL_HANDLE };
+    // VkDescriptorPool mDescriptorPool{ VK_NULL_HANDLE };
+    // VkDescriptorSetLayout mDescriptorSetLayout{ VK_NULL_HANDLE };
 	//Only need one descriptor set for now:
-    VkDescriptorSet mDescriptorSet{ VK_NULL_HANDLE }; // [QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT] { VK_NULL_HANDLE };
+    //VkDescriptorSet mDescriptorSet{ VK_NULL_HANDLE }; // [QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT] { VK_NULL_HANDLE };
 
     VkPipelineCache mPipelineCache{ VK_NULL_HANDLE };
     VkPipelineLayout mPipelineLayout{ VK_NULL_HANDLE };
@@ -105,7 +105,24 @@ private:
 	void EndTransientCommandBuffer(VkCommandBuffer commandBuffer);
 
     BufferHandle mUniformBuffer{};
-	void* mUniformBufferLocation{ nullptr };
+    uint8_t* mUniformBufferLocation{ nullptr };
+
+    class Light* mLight{nullptr};
+
+    // Phong shader
+    struct {
+        VkDeviceSize vertUniSize;
+        VkDeviceSize fragUniSize;
+        // VkDeviceSize uniMemStartOffset;
+        VkShaderModule vertShaderModule;
+        VkShaderModule fragShaderModule;
+        VkDescriptorPool descriptorPool{VK_NULL_HANDLE};
+        VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
+        VkDescriptorSet descriptorSet;
+        // VkDescriptorSet descriptorSet2;
+        // VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+        // VkPipeline pipeline{VK_NULL_HANDLE};
+    } mPhongMaterial;
 };
 
 #endif // RENDERER_H

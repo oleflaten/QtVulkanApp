@@ -32,11 +32,15 @@ public:
 	inline std::vector<Vertex> getVertices() const { return mVertices; }
 	inline std::vector<uint32_t> getIndices() const { return mIndices; }
 
+    inline QVector3D position() const { return mPosition; }
+
 protected:
     std::vector<Vertex> mVertices;
     std::vector<uint32_t> mIndices;
     QMatrix4x4 mMatrix;
     std::string mName;
+
+	QVector3D mPosition{ 0.0f, 0.0f, 0.0f };
 
 	BufferHandle mVertexBuffer;
 	BufferHandle mIndexBuffer;
@@ -46,4 +50,3 @@ protected:
 };
 
 #endif // VISUALOBJECT_H
-

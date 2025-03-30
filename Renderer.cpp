@@ -3,6 +3,7 @@
 #include <QFile>
 #include "VulkanWindow.h"
 #include "WorldAxis.h"
+#include "Light.h"
 
 /*** Renderer class ***/
 Renderer::Renderer(QVulkanWindow *w, bool msaa)
@@ -19,14 +20,20 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
             }
         }
     }
-    // Dag 230125
+
+    //Since the light is a special object we have only one of
+    mLight = new Light();
+
     mObjects.push_back(new Triangle());
     mObjects.push_back((new TriangleSurface()));
     mObjects.push_back((new WorldAxis()));
-    // Dag 030225
+    mObjects.push_back((mLight));
+
+
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
     mObjects.at(2)->setName("axis");
+    mObjects.at(3)->setName("light");
 
     // **************************************
     // Legger inn objekter i map
@@ -55,32 +62,38 @@ void Renderer::initResources()
     mDeviceFunctions->vkGetDeviceQueue(logicalDevice, graphicsQueueFamilyIndex, 0, &mGraphicsQueue);
 
     // const int concurrentFrameCount = mWindow->concurrentFrameCount(); // 2 on Oles Machine
-    const VkPhysicalDeviceLimits *pdevLimits = &mWindow->physicalDeviceProperties()->limits;
-    const VkDeviceSize uniAlign = pdevLimits->minUniformBufferOffsetAlignment;
-    qDebug("Uniform buffer offset alignment is %u", (uint)uniAlign); //64 on Oles machine
+    const VkPhysicalDeviceLimits *physicalDeviceLimits = &mWindow->physicalDeviceProperties()->limits;
+    const VkDeviceSize uniformAlignment = physicalDeviceLimits->minUniformBufferOffsetAlignment;
+    qDebug("Uniform buffer offset alignment is %u", (uint)uniformAlignment); //64 on Oles machine
+
+    mPhongMaterial.vertUniSize = aligned(2 * 64, uniformAlignment);         // 2x mat4
+                                        //one float can go at the end of the last vec3
+    mPhongMaterial.fragUniSize = aligned( 2 * 16 + 12 + 4 * 4, uniformAlignment); // 3x vec3, 3x float + 1x int
+
+
 
 	// Create correct buffers for all objects in mObjects with createBuffer() function
     for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
     {
-		createVertexBuffer(uniAlign, *it);                //New version - more explicit to how Vulkan does it
+        createVertexBuffer(uniformAlignment, *it);                //New version - more explicit to how Vulkan does it
 		//createBuffer(logicalDevice, uniAlign, *it);         //Old version 
 
 		if ((*it)->getIndices().size() > 0) //If object has indices
-			createIndexBuffer(uniAlign, *it);
+            createIndexBuffer(uniformAlignment, *it);
     }
 
     //DescriptorSets must be made before the Pipelines
     createDescriptorSetLayouts();
 
     /********************************* Vertex layout: *********************************/
-	VkVertexInputBindingDescription vertexBindingDesc{};    //Updated to a more common way to write it
+    VkVertexInputBindingDescription vertexBindingDesc{};
 	vertexBindingDesc.binding = 0;
 	vertexBindingDesc.stride = sizeof(Vertex);
 	vertexBindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     /********************************* Shader bindings: *********************************/
     //Descritpion of the attributes used for vertices in the shader
-	VkVertexInputAttributeDescription vertexAttrDesc[2];    //Updated to a more common way to write it
+    VkVertexInputAttributeDescription vertexAttrDesc[3];
 	vertexAttrDesc[0].location = 0;
     vertexAttrDesc[0].binding = 0;
 	vertexAttrDesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -91,13 +104,18 @@ void Renderer::initResources()
 	vertexAttrDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 	vertexAttrDesc[1].offset = 3 * sizeof(float);           // could use offsetof(Vertex, r); from <cstddef>
 
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};	    // C++11: {} is the same as memset(&bufferInfo, 0, sizeof(bufferInfo));
+    vertexAttrDesc[2].location = 2;	    //UV
+    vertexAttrDesc[2].binding = 0;
+    vertexAttrDesc[2].format = VK_FORMAT_R32G32_SFLOAT;
+    vertexAttrDesc[2].offset = 6 * sizeof(float);           // 6 floats before the UVs are found
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.pNext = nullptr;
     vertexInputInfo.flags = 0;
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDesc;
-    vertexInputInfo.vertexAttributeDescriptionCount = 2; // position and color - sizeof(vertexAttrDesc) / sizeof(vertexAttrDesc[0]);
+    vertexInputInfo.vertexAttributeDescriptionCount = sizeof(vertexAttrDesc) / sizeof(vertexAttrDesc[0]);   // will be 3
     vertexInputInfo.pVertexAttributeDescriptions = vertexAttrDesc;
     /*******************************************************/
 
@@ -110,38 +128,38 @@ void Renderer::initResources()
 
     // Pipeline layout
     // Set up the push constant info
-    VkPushConstantRange pushConstantRange{};                //Updated to more common way to write it
+    VkPushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushConstantRange.offset = 0;
-    pushConstantRange.size = 16 * sizeof(float);            // 16 floats for the model matrix
+    pushConstantRange.size = 16 * sizeof(float) + 3 * sizeof(float);    // 16 floats for the model matrix + 3 floats for color
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;                  // PushConstants update
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;    // PushConstants update
-    pipelineLayoutInfo.setLayoutCount = 1;                          // Uniforms / DescriptorSet update
-    pipelineLayoutInfo.pSetLayouts = &mDescriptorSetLayout;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;                  
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;    
+    pipelineLayoutInfo.setLayoutCount = 1;                          
+    pipelineLayoutInfo.pSetLayouts = &mPhongMaterial.descriptorSetLayout;
     result = mDeviceFunctions->vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout);
     if (result != VK_SUCCESS)
         qFatal("Failed to create pipeline layout: %d", result);
 
     /********************************* Create shaders *********************************/
     //Creates our actual shader modules
-    VkShaderModule vertShaderModule = createShader(QStringLiteral(":/color_vert.spv"));
-    VkShaderModule fragShaderModule = createShader(QStringLiteral(":/color_frag.spv"));
+    mPhongMaterial.vertShaderModule = createShader(QStringLiteral(":/phong_vert.spv"));
+    mPhongMaterial.fragShaderModule = createShader(QStringLiteral(":/phong_frag.spv"));
 
 	//Updated to more common way to write it:
     VkPipelineShaderStageCreateInfo vertShaderCreateInfo{};
 	vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertShaderCreateInfo.module = vertShaderModule;
+    vertShaderCreateInfo.module = mPhongMaterial.vertShaderModule;
 	vertShaderCreateInfo.pName = "main";                // start function in shader
 
     VkPipelineShaderStageCreateInfo fragShaderCreateInfo{};
 	fragShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	fragShaderCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragShaderCreateInfo.module = fragShaderModule;
+    fragShaderCreateInfo.module = mPhongMaterial.fragShaderModule;
 	fragShaderCreateInfo.pName = "main";                // start function in shader
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderCreateInfo, fragShaderCreateInfo };
@@ -231,10 +249,10 @@ void Renderer::initResources()
 
 
 	// Destroying the shader modules, we won't need them anymore after the pipeline is created
-    if (vertShaderModule)
-        mDeviceFunctions->vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
-    if (fragShaderModule)
-        mDeviceFunctions->vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
+    if (mPhongMaterial.vertShaderModule)
+        mDeviceFunctions->vkDestroyShaderModule(logicalDevice, mPhongMaterial.vertShaderModule, nullptr);
+    if (mPhongMaterial.fragShaderModule)
+        mDeviceFunctions->vkDestroyShaderModule(logicalDevice, mPhongMaterial.fragShaderModule, nullptr);
 
 	// Create the uniform buffer
 	createUniformBuffer();
@@ -242,6 +260,7 @@ void Renderer::initResources()
     createDescriptorSet();
 
     getVulkanHWInfo(); // if you want to get info about the Vulkan hardware
+    qDebug("InitResouce finished");
 }
 
 // This function is called at startup, and when the app window is resized
@@ -273,15 +292,16 @@ void Renderer::startNextFrame()
 
 	setRenderPassParameters(commandBuffer);
 
-    VkDeviceSize vbOffset{ 0 };     //Offsets into buffer being bound
-
-    mDeviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1, 
-        &mDescriptorSet, 0, nullptr);
+    uint32_t frameUniOffset = mWindow->currentFrame() * (mPhongMaterial.vertUniSize + mPhongMaterial.fragUniSize);
+    uint32_t frameUniOffsets[] = { frameUniOffset, frameUniOffset };
+    mDeviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1,
+        &mPhongMaterial.descriptorSet, 2, frameUniOffsets);
 
     //NEW CODE WITH UNIFORM EXAMPLE:
     setViewProjectionMatrix();   //Update the view and projection matrix in the Uniform
 
     /********************************* Our draw call!: *********************************/
+    VkDeviceSize vbOffset{ 0 };     //Offsets into buffer being bound
     for (std::vector<VisualObject*>::iterator it=mObjects.begin(); it!=mObjects.end(); it++)
     {
         //Draw type
@@ -329,6 +349,7 @@ VkShaderModule Renderer::createShader(const QString &name)
     shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shaderInfo.codeSize = blob.size();
     shaderInfo.pCode = reinterpret_cast<const uint32_t *>(blob.constData());
+
     VkShaderModule shaderModule;
     VkResult err = mDeviceFunctions->vkCreateShaderModule(mWindow->device(), &shaderInfo, nullptr, &shaderModule);
     if (err != VK_SUCCESS) {
@@ -349,18 +370,45 @@ void Renderer::setModelMatrix(QMatrix4x4 modelMatrix)
 //Uses Uniform Buffers to transfer the View and Projection matrix - and other data you want to transfer:
 void Renderer::setViewProjectionMatrix()
 {
-    memcpy(mUniformBufferLocation, mCamera.viewMatrix().constData(), 64);
+    uint8_t* p = mUniformBufferLocation;
+    // ************ Vertex shader ******************
+    memcpy(p, mCamera.viewMatrix().constData(), 64);
 
     QMatrix4x4 temp = mCamera.projectionMatrix();
     temp = temp * mWindow->clipCorrectionMatrix();  //Correcting for Vulkans -Y
 
+    p += 64;
 	//Adding 64 bytes to the uniform buffer location to get to the projection matrix position
-    memcpy(static_cast<char*>(mUniformBufferLocation) + 64, temp.constData(), 64);
+    memcpy(p, temp.constData(), 64);
 
     //Just testing some more random data to send
     //Vertex-shader is updatex accordingly
     float color[3] = {0.8, 0.1, 0.9};
-    memcpy(static_cast<char*>(mUniformBufferLocation) + 128, color, 12);
+    p += 64;
+    memcpy(p, color, 12);
+
+    // ************ Fragment shader ******************
+    p += 16;    // alignment is 16
+    float lightPos[3] = {mLight->position().x(), mLight->position().y(), mLight->position().z()};
+    memcpy(p, lightPos, 12);
+    p += 16;    // alignment is 16
+    memcpy(p, mLight->mLightColor, 12);
+    p += 16;    // alignment is 16
+    float cameraPos[3] = {mCamera.position().x(), mCamera.position().y(), mCamera.position().z()};
+    memcpy(p, cameraPos, 12);
+
+    p += 12;    // alignment is 16 but next value is only 4 so fits into this
+    memcpy(p, &mLight->mAmbientStrenght, 4);
+
+    p += 4;    // only 4 up to next allignment
+    memcpy(p, &mLight->mLightStrenght, 4);
+
+    p += 4;    // adding into this allignment block
+    memcpy(p, &mLight->mSpecularStrenght, 4);
+
+    p += 4;    // adding into this allignment block
+    memcpy(p, &mLight->mSpecularExponent, 4);
+
 
     /************ NB ************
     Remember to go into
@@ -539,7 +587,7 @@ BufferHandle Renderer::createGeneralBuffer(const VkDeviceSize size, VkBufferUsag
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;    // set the structure type
     bufferInfo.size = size;                                     // size of the wanted buffer
     bufferInfo.usage = usage;                                   // buffer usage type
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    // bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VkResult err = mDeviceFunctions->vkCreateBuffer(mWindow->device(), &bufferInfo, nullptr, &bufferHandle.mBuffer);
     if (err != VK_SUCCESS)
@@ -572,18 +620,30 @@ BufferHandle Renderer::createGeneralBuffer(const VkDeviceSize size, VkBufferUsag
 //Create a descriptor set layout that describes the uniform buffer.
 void Renderer::createDescriptorSetLayouts()
 {
-    VkDescriptorSetLayoutBinding uniformLayoutBinding{};
-    uniformLayoutBinding.binding = 0;
-    uniformLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uniformLayoutBinding.descriptorCount = 1;
-    uniformLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;   //We are using the uniform buffer in the vertex shader
+    VkDescriptorSetLayoutBinding descriptorSetLayoutBinding[2]{};
+    descriptorSetLayoutBinding[0].binding = 0;
+    descriptorSetLayoutBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    descriptorSetLayoutBinding[0].descriptorCount = 1;
+    descriptorSetLayoutBinding[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;   // vertex shader
+    descriptorSetLayoutBinding[0].pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uniformLayoutBinding;
 
-    VkResult err = mDeviceFunctions->vkCreateDescriptorSetLayout(mWindow->device(), &layoutInfo, nullptr, &mDescriptorSetLayout);
+    descriptorSetLayoutBinding[1].binding = 1;
+    descriptorSetLayoutBinding[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    descriptorSetLayoutBinding[1].descriptorCount = 1;
+    descriptorSetLayoutBinding[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;  //fragment shader
+    descriptorSetLayoutBinding[1].pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
+    descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutInfo.pNext = nullptr;
+    descriptorSetLayoutInfo.flags = 0;
+    descriptorSetLayoutInfo.bindingCount = sizeof(descriptorSetLayoutBinding) / sizeof(descriptorSetLayoutBinding[0]);
+    descriptorSetLayoutInfo.pBindings = descriptorSetLayoutBinding;
+
+    VkResult err = mDeviceFunctions->vkCreateDescriptorSetLayout(mWindow->device(),
+                                                                 &descriptorSetLayoutInfo, nullptr,
+                                                                 &mPhongMaterial.descriptorSetLayout);
     if (err != VK_SUCCESS)
         qFatal("Failed to create DescriptorSetLayout: %d", err);
 }
@@ -591,13 +651,17 @@ void Renderer::createDescriptorSetLayouts()
 //Creates the actual Uniform Buffer - one important thing being the size of it
 void Renderer::createUniformBuffer()
 {
-    VkDeviceSize bufferSize = 64 + 64 + 12;      // two 4x4 matrices + 12 for color
+    //Vertex and fragment uniforms - // two 4x4 matrices + 12 for color
+    VkDeviceSize bufferSize = (mPhongMaterial.vertUniSize + mPhongMaterial.fragUniSize); // * concurrentFrameCount;
 
     mUniformBuffer = createGeneralBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     //Map the buffer memory
-    VkResult err = mDeviceFunctions->vkMapMemory(mWindow->device(), mUniformBuffer.mBufferMemory, 0, bufferSize, 0, &mUniformBufferLocation);
+    VkResult err = mDeviceFunctions->vkMapMemory(mWindow->device(), mUniformBuffer.mBufferMemory,
+                                                 0,
+                                                 bufferSize,
+                                                 0, reinterpret_cast<void **>(&mUniformBufferLocation));
     if (err != VK_SUCCESS)
         qFatal("Failed to map memory: %d", err);
 }
@@ -606,47 +670,71 @@ void Renderer::createUniformBuffer()
 //Also gives the Buffer size so this has to match the buffer made.
 void Renderer::createDescriptorSet()
 {
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = mDescriptorPool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &mDescriptorSetLayout;
+    //VkDescriptorSetLayout setLayouts[] = { mPhongMaterial.descriptorSetLayout, mPhongMaterial.descriptorSetLayout };
 
-    VkResult err = mDeviceFunctions->vkAllocateDescriptorSets(mWindow->device(), &allocInfo, &mDescriptorSet);
+    VkDescriptorSetAllocateInfo descritprSetAllocateInfo{};
+    descritprSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descritprSetAllocateInfo.pNext = nullptr;
+    descritprSetAllocateInfo.descriptorPool = mPhongMaterial.descriptorPool;
+    descritprSetAllocateInfo.descriptorSetCount = 1;
+    descritprSetAllocateInfo.pSetLayouts = &mPhongMaterial.descriptorSetLayout;
+
+    // VkDescriptorSet descriptorSets[2];
+    VkResult err = mDeviceFunctions->vkAllocateDescriptorSets(mWindow->device(),
+                                                              &descritprSetAllocateInfo,
+                                                              &mPhongMaterial.descriptorSet);
     if (err != VK_SUCCESS)
         qFatal("Failed to allocate descriptor set: %d", err);
 
-    VkDescriptorBufferInfo bufferInfo{};
-    bufferInfo.buffer = mUniformBuffer.mBuffer;
-    bufferInfo.offset = 0;
-    bufferInfo.range = 64 + 64 + 12;      // two 4x4 matrices + 12 for color
+    // mPhongMaterial.descriptorSet = descriptorSets[0];
+    // mPhongMaterial.descriptorSet2 = descriptorSets[1]; // Store the second descriptor set
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = mDescriptorSet;        //[0];
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pBufferInfo = &bufferInfo;
+    VkDescriptorBufferInfo vertexBufferInfo{};
+    vertexBufferInfo.buffer = mUniformBuffer.mBuffer;
+    vertexBufferInfo.offset = 0;
+    vertexBufferInfo.range = mPhongMaterial.vertUniSize;      // two 4x4 matrices
 
-    mDeviceFunctions->vkUpdateDescriptorSets(mWindow->device(), 1, &descriptorWrite, 0, nullptr);
+    VkDescriptorBufferInfo fragmentBufferInfo{};
+    fragmentBufferInfo.buffer = mUniformBuffer.mBuffer;
+    fragmentBufferInfo.offset = mPhongMaterial.vertUniSize;
+    fragmentBufferInfo.range = mPhongMaterial.fragUniSize;      // 3x vec3, 3x float, 1x int
+
+    VkWriteDescriptorSet writeDescriptorSet[2]{};
+    writeDescriptorSet[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[0].dstSet = mPhongMaterial.descriptorSet;
+    writeDescriptorSet[0].dstBinding = 0;
+    writeDescriptorSet[0].dstArrayElement = 0;
+    writeDescriptorSet[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    writeDescriptorSet[0].descriptorCount = 1;
+    writeDescriptorSet[0].pBufferInfo = &vertexBufferInfo;
+
+    writeDescriptorSet[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeDescriptorSet[1].dstSet = mPhongMaterial.descriptorSet;
+    writeDescriptorSet[1].dstBinding = 1;
+    writeDescriptorSet[1].dstArrayElement = 0;
+    writeDescriptorSet[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    writeDescriptorSet[1].descriptorCount = 1;
+    writeDescriptorSet[1].pBufferInfo = &fragmentBufferInfo;
+
+                                                            // 2 descriptor sets
+    mDeviceFunctions->vkUpdateDescriptorSets(mWindow->device(), 2, writeDescriptorSet, 0, nullptr);
 }
 
 //Create a descriptor pool to allocate descriptor sets - for the Uniform Buffers.
 void Renderer::createDescriptorPool()
 {
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;  //VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC
-    poolSize.descriptorCount = 1;
+    VkDescriptorPoolSize descriptorPoolSize[1]{};
+    descriptorPoolSize[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;  //VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+    descriptorPoolSize[0].descriptorCount = 2;
 
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 1;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
+    VkDescriptorPoolCreateInfo descriptorPoolInfo{};
+    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolInfo.maxSets = 1;
+    descriptorPoolInfo.poolSizeCount = sizeof(descriptorPoolSize) / sizeof(descriptorPoolSize[0]);
+    descriptorPoolInfo.pPoolSizes = descriptorPoolSize;
 
-    VkResult err = mDeviceFunctions->vkCreateDescriptorPool(mWindow->device(), &poolInfo, nullptr, &mDescriptorPool);
+    VkResult err = mDeviceFunctions->vkCreateDescriptorPool(mWindow->device(), &descriptorPoolInfo, nullptr,
+                                                            &mPhongMaterial.descriptorPool);
     if (err != VK_SUCCESS)
         qFatal("Failed to create descriptor pool: %d", err);
 }
@@ -753,14 +841,14 @@ void Renderer::releaseResources()
 
 	destroyBuffer(mUniformBuffer);
 
-    if (mDescriptorSetLayout) {
-        mDeviceFunctions->vkDestroyDescriptorSetLayout(dev, mDescriptorSetLayout, nullptr);
-        mDescriptorSetLayout = VK_NULL_HANDLE;
+    if (mPhongMaterial.descriptorSetLayout) {
+        mDeviceFunctions->vkDestroyDescriptorSetLayout(dev, mPhongMaterial.descriptorSetLayout, nullptr);
+        mPhongMaterial.descriptorSetLayout = VK_NULL_HANDLE;
     }
 
-    if (mDescriptorPool) {
-        mDeviceFunctions->vkDestroyDescriptorPool(dev, mDescriptorPool, nullptr);
-        mDescriptorPool = VK_NULL_HANDLE;
+    if (mPhongMaterial.descriptorPool) {
+        mDeviceFunctions->vkDestroyDescriptorPool(dev, mPhongMaterial.descriptorPool, nullptr);
+        mPhongMaterial.descriptorPool = VK_NULL_HANDLE;
     }
 
     // Free buffers and memory for all objects in container
@@ -842,7 +930,7 @@ void Renderer::EndTransientCommandBuffer(VkCommandBuffer commandBuffer)
 
 	//This is the way to submit a command buffer in Vulkan
     mDeviceFunctions->vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    //mDeviceFunctions->vkQueueWaitIdle(mGraphicsQueue);
+    mDeviceFunctions->vkQueueWaitIdle(mGraphicsQueue);
 	mDeviceFunctions->vkFreeCommandBuffers(mWindow->device(), mWindow->graphicsCommandPool(), 1, &commandBuffer);
 }
 
