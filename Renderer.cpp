@@ -607,6 +607,11 @@ void Renderer::releaseResources()
 			DestroyBuffer(handle);
             (*it)->getVBuffer() = VK_NULL_HANDLE;
         }
+        if ((*it)->getIBuffer()) {
+            BufferHandle handle { (*it)->getIBufferMemory(), (*it)->getIBuffer() };
+            DestroyBuffer(handle);
+            (*it)->getVBuffer() = VK_NULL_HANDLE;
+        }
     }
 }
 
