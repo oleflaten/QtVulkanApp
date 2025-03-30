@@ -42,7 +42,8 @@ void main() {
 
     vec3 result = ambient + diffuse + specular;
 
-    fragColor = vec4(result, 1.0) * vec4(objectColor, 1.0);    //texture(textureSampler, UV);
+//    fragColor = vec4(result, 1.0) * vec4(objectColor, 1.0);    //texture(textureSampler, UV
+    fragColor =  vec4(objectColor, 1.0);    //texture(textureSampler, UV);
 }
 
 //Using calculations in world space,

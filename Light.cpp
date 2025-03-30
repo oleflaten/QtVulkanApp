@@ -21,6 +21,6 @@ Light::Light()
         }
     );
 
-    mPosition = {1.5, 3.0, 4.0};
+    mPosition = {1.5, 1.0, 3.0};
     mMatrix.translate(mPosition.x(), mPosition.y(), mPosition.z());
 }

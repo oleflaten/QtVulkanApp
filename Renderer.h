@@ -45,7 +45,7 @@ protected:
     //Creates the Vulkan shader module from the precompiled shader files in .spv format
     VkShaderModule createShader(const QString &name);
 
-	void setModelMatrix(QMatrix4x4 modelMatrix);
+	void setModelMatrix(QMatrix4x4 modelMatrix, QVector3D color);
     void setViewProjectionMatrix();
 
 	void setRenderPassParameters(VkCommandBuffer commandBuffer);
@@ -68,8 +68,8 @@ protected:
     //VkDescriptorSet mDescriptorSet{ VK_NULL_HANDLE }; // [QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT] { VK_NULL_HANDLE };
 
     VkPipelineCache mPipelineCache{ VK_NULL_HANDLE };
-    VkPipelineLayout mPipelineLayout{ VK_NULL_HANDLE };
-    VkPipeline mPipeline1{ VK_NULL_HANDLE };
+    //VkPipelineLayout mPipelineLayout{ VK_NULL_HANDLE };
+    //VkPipeline mPipeline1{ VK_NULL_HANDLE };
     VkPipeline mPipeline2{ VK_NULL_HANDLE };
 
     VkQueue mGraphicsQueue{ VK_NULL_HANDLE };
@@ -119,9 +119,8 @@ private:
         VkDescriptorPool descriptorPool{VK_NULL_HANDLE};
         VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
         VkDescriptorSet descriptorSet;
-        // VkDescriptorSet descriptorSet2;
-        // VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-        // VkPipeline pipeline{VK_NULL_HANDLE};
+        VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+        VkPipeline pipeline{VK_NULL_HANDLE};
     } mPhongMaterial;
 };
 

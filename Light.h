@@ -9,13 +9,13 @@ public:
     Light();
 
     float mAmbientStrenght{0.3f};
-    float mAmbientColor[3]{0.3f, 0.3f, 0.3f};  //Grey
+    float mAmbientColor[3]{0.3f, 1.0f, 0.3f};  //Green
 
-    float mLightStrenght{0.7f};
+    float mLightStrenght{1.0f};
     float mLightColor[3]{0.9f, 0.9f, 0.3f};    //Yellow
 
     float mSpecularStrenght{0.9f};
-    int mSpecularExponent{4};
+    int mSpecularExponent{32};
 };
 
 #endif // LIGHT_H

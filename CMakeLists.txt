@@ -107,16 +107,16 @@ add_custom_target(
 )
 add_custom_target(
     PreBuildCommandPF ALL
-    COMMAND glslc phong.frag -o phong_frag.spv
+#    COMMAND glslc phong.frag -o phong_frag.spv
 #   This version includes the debug info in the compiled shader - good for RenderDoc
-#   COMMAND glslangValidator -g -V -o phong_frag.spv phong.frag
+    COMMAND glslangValidator -g -V -o phong_frag.spv phong.frag
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Compiling phong fragment shader"
 )
 add_custom_target(
     PreBuildCommandPV ALL
-    COMMAND glslc phong.vert -o phong_vert.spv
-#   COMMAND glslangValidator -g -V -o phong_vert.spv phong.vert
+#   COMMAND glslc phong.vert -o phong_vert.spv
+    COMMAND glslangValidator -g -V -o phong_vert.spv phong.vert
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Compiling phong vertex shader"
 )

@@ -33,6 +33,9 @@ public:
 	inline std::vector<uint32_t> getIndices() const { return mIndices; }
 
     inline QVector3D position() const { return mPosition; }
+    inline QVector3D color() const { return mColor; }
+
+    void setColor(const QVector3D &newColor);
 
 protected:
     std::vector<Vertex> mVertices;
@@ -41,6 +44,7 @@ protected:
     std::string mName;
 
 	QVector3D mPosition{ 0.0f, 0.0f, 0.0f };
+    QVector3D mColor{ 0.5f, 0.f, 0.5f };
 
 	BufferHandle mVertexBuffer;
 	BufferHandle mIndexBuffer;

@@ -29,11 +29,15 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
     mObjects.push_back((new WorldAxis()));
     mObjects.push_back((mLight));
 
-
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
     mObjects.at(2)->setName("axis");
     mObjects.at(3)->setName("light");
+
+    mObjects.at(0)->setColor({1.0, 0.0, 0.3});
+    mObjects.at(1)->setColor({0.0, 1.0, 0.3});
+    mObjects.at(2)->setColor({1.0, 0.0, 0.3});
+    mObjects.at(3)->setColor({0.0, 0.0, 1.3});
 
     // **************************************
     // Legger inn objekter i map
@@ -135,12 +139,14 @@ void Renderer::initResources()
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
     pipelineLayoutInfo.pushConstantRangeCount = 1;                  
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;    
     pipelineLayoutInfo.setLayoutCount = 1;                          
     pipelineLayoutInfo.pSetLayouts = &mPhongMaterial.descriptorSetLayout;
-    result = mDeviceFunctions->vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout);
+
+    result = mDeviceFunctions->vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo,
+                                                      nullptr,
+                                                      &mPhongMaterial.pipelineLayout);
     if (result != VK_SUCCESS)
         qFatal("Failed to create pipeline layout: %d", result);
 
@@ -230,15 +236,16 @@ void Renderer::initResources()
     dynamic.pDynamicStates = dynamicEnable;
     pipelineInfo.pDynamicState = &dynamic;
 
-    pipelineInfo.layout = mPipelineLayout;
+    pipelineInfo.layout = mPhongMaterial.pipelineLayout;
     pipelineInfo.renderPass = mWindow->defaultRenderPass();
 
-    result = mDeviceFunctions->vkCreateGraphicsPipelines(logicalDevice, mPipelineCache, 1, &pipelineInfo, nullptr, &mPipeline1);
+    result = mDeviceFunctions->vkCreateGraphicsPipelines(logicalDevice, mPipelineCache, 1, &pipelineInfo,
+                                                         nullptr, &mPhongMaterial.pipeline);
     if (result != VK_SUCCESS)
         qFatal("Failed to create graphics pipeline: %d", result);
 
 	//Making a pipeline for drawing lines
-	mPipeline2 = mPipeline1;                                    // reusing most of the settings from the first pipeline
+    mPipeline2 = mPhongMaterial.pipeline;                                    // reusing most of the settings from the first pipeline
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;   // draw lines
     rasterization.polygonMode = VK_POLYGON_MODE_FILL;           // VK_POLYGON_MODE_LINE will make a wireframe; VK_POLYGON_MODE_FILL
     rasterization.lineWidth = 5.0f;
@@ -259,7 +266,7 @@ void Renderer::initResources()
     createDescriptorPool();
     createDescriptorSet();
 
-    getVulkanHWInfo(); // if you want to get info about the Vulkan hardware
+    //getVulkanHWInfo(); // if you want to get info about the Vulkan hardware
     qDebug("InitResouce finished");
 }
 
@@ -292,9 +299,11 @@ void Renderer::startNextFrame()
 
 	setRenderPassParameters(commandBuffer);
 
-    uint32_t frameUniOffset = mWindow->currentFrame() * (mPhongMaterial.vertUniSize + mPhongMaterial.fragUniSize);
-    uint32_t frameUniOffsets[] = { frameUniOffset, frameUniOffset };
-    mDeviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipelineLayout, 0, 1,
+    uint32_t frameIndex = mWindow->currentFrame();
+    uint32_t frameUniOffset = frameIndex * (mPhongMaterial.vertUniSize + mPhongMaterial.fragUniSize);
+    uint32_t frameUniOffsets[] = { frameUniOffset, frameUniOffset }; // + mPhongMaterial.vertUniSize };
+
+    mDeviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPhongMaterial.pipelineLayout, 0, 1,
         &mPhongMaterial.descriptorSet, 2, frameUniOffsets);
 
     //NEW CODE WITH UNIFORM EXAMPLE:
@@ -306,11 +315,11 @@ void Renderer::startNextFrame()
     {
         //Draw type
 		if ((*it)->getDrawType() == 0)
-			mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline1);
+            mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPhongMaterial.pipeline);
 		else
 			mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline2);
 
-        setModelMatrix((*it)->getMatrix()); // only Model matrix - pr model);
+        setModelMatrix((*it)->getMatrix(), (*it)->color()); // Model matrix and object color;
 
         mDeviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(*it)->getVBuffer(), &vbOffset);
 		//Check if we have an index buffer - if so, use Indexed draw
@@ -361,10 +370,19 @@ VkShaderModule Renderer::createShader(const QString &name)
 }
 
 //Uses pushconstants to update the Model Matrix in the shader
-void Renderer::setModelMatrix(QMatrix4x4 modelMatrix)
+void Renderer::setModelMatrix(QMatrix4x4 modelMatrix, QVector3D color)
 {
-	mDeviceFunctions->vkCmdPushConstants(mWindow->currentCommandBuffer(), mPipelineLayout, 
-		VK_SHADER_STAGE_VERTEX_BIT, 0, 16 * sizeof(float), modelMatrix.constData());    //Column-major matrix
+	float tempArray[19]{};  // 16 floats for the matrix + 3 floats for the color
+	memcpy(tempArray, modelMatrix.constData(), 16 * sizeof(float));
+
+    tempArray[16] = color.x();
+    tempArray[17] = color.y();
+    tempArray[18] = color.z();
+    mDeviceFunctions->vkCmdPushConstants(mWindow->currentCommandBuffer(), mPhongMaterial.pipelineLayout,
+            VK_SHADER_STAGE_VERTEX_BIT, 0, 19 * sizeof(float), tempArray);
+
+    //mDeviceFunctions->vkCmdPushConstants(mWindow->currentCommandBuffer(), mPhongMaterial.pipelineLayout,
+		//VK_SHADER_STAGE_VERTEX_BIT, 0, 16 * sizeof(float), modelMatrix.constData());    //Column-major matrix
 }
 
 //Uses Uniform Buffers to transfer the View and Projection matrix - and other data you want to transfer:
@@ -652,7 +670,7 @@ void Renderer::createDescriptorSetLayouts()
 void Renderer::createUniformBuffer()
 {
     //Vertex and fragment uniforms - // two 4x4 matrices + 12 for color
-    VkDeviceSize bufferSize = (mPhongMaterial.vertUniSize + mPhongMaterial.fragUniSize); // * concurrentFrameCount;
+    VkDeviceSize bufferSize = (mPhongMaterial.vertUniSize + mPhongMaterial.fragUniSize) * mWindow->concurrentFrameCount();
 
     mUniformBuffer = createGeneralBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -670,8 +688,6 @@ void Renderer::createUniformBuffer()
 //Also gives the Buffer size so this has to match the buffer made.
 void Renderer::createDescriptorSet()
 {
-    //VkDescriptorSetLayout setLayouts[] = { mPhongMaterial.descriptorSetLayout, mPhongMaterial.descriptorSetLayout };
-
     VkDescriptorSetAllocateInfo descritprSetAllocateInfo{};
     descritprSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     descritprSetAllocateInfo.pNext = nullptr;
@@ -679,15 +695,11 @@ void Renderer::createDescriptorSet()
     descritprSetAllocateInfo.descriptorSetCount = 1;
     descritprSetAllocateInfo.pSetLayouts = &mPhongMaterial.descriptorSetLayout;
 
-    // VkDescriptorSet descriptorSets[2];
     VkResult err = mDeviceFunctions->vkAllocateDescriptorSets(mWindow->device(),
                                                               &descritprSetAllocateInfo,
                                                               &mPhongMaterial.descriptorSet);
     if (err != VK_SUCCESS)
         qFatal("Failed to allocate descriptor set: %d", err);
-
-    // mPhongMaterial.descriptorSet = descriptorSets[0];
-    // mPhongMaterial.descriptorSet2 = descriptorSets[1]; // Store the second descriptor set
 
     VkDescriptorBufferInfo vertexBufferInfo{};
     vertexBufferInfo.buffer = mUniformBuffer.mBuffer;
@@ -703,7 +715,7 @@ void Renderer::createDescriptorSet()
     writeDescriptorSet[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeDescriptorSet[0].dstSet = mPhongMaterial.descriptorSet;
     writeDescriptorSet[0].dstBinding = 0;
-    writeDescriptorSet[0].dstArrayElement = 0;
+    // writeDescriptorSet[0].dstArrayElement = 0;
     writeDescriptorSet[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     writeDescriptorSet[0].descriptorCount = 1;
     writeDescriptorSet[0].pBufferInfo = &vertexBufferInfo;
@@ -711,7 +723,7 @@ void Renderer::createDescriptorSet()
     writeDescriptorSet[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writeDescriptorSet[1].dstSet = mPhongMaterial.descriptorSet;
     writeDescriptorSet[1].dstBinding = 1;
-    writeDescriptorSet[1].dstArrayElement = 0;
+    // writeDescriptorSet[1].dstArrayElement = 0;
     writeDescriptorSet[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     writeDescriptorSet[1].descriptorCount = 1;
     writeDescriptorSet[1].pBufferInfo = &fragmentBufferInfo;
@@ -811,7 +823,7 @@ void Renderer::releaseSwapChainResources()
     */
 }
 
-// Function called by Qt when the application typically when app is closing
+// Function called by Qt typically when app is closing
 // It automatically waits for the GPU to be idle before releasing resources
 void Renderer::releaseResources()
 {
@@ -819,9 +831,9 @@ void Renderer::releaseResources()
 
     VkDevice dev = mWindow->device();
 
-    if (mPipeline1) {
-        mDeviceFunctions->vkDestroyPipeline(dev, mPipeline1, nullptr);
-        mPipeline1 = VK_NULL_HANDLE;
+    if (mPhongMaterial.pipeline) {
+        mDeviceFunctions->vkDestroyPipeline(dev, mPhongMaterial.pipeline, nullptr);
+        mPhongMaterial.pipeline = VK_NULL_HANDLE;
     }
 
     if (mPipeline2) {
@@ -829,9 +841,9 @@ void Renderer::releaseResources()
         mPipeline2 = VK_NULL_HANDLE;
     }
 
-    if (mPipelineLayout) {
-        mDeviceFunctions->vkDestroyPipelineLayout(dev, mPipelineLayout, nullptr);
-        mPipelineLayout = VK_NULL_HANDLE;
+    if (mPhongMaterial.pipelineLayout) {
+        mDeviceFunctions->vkDestroyPipelineLayout(dev, mPhongMaterial.pipelineLayout, nullptr);
+        mPhongMaterial.pipelineLayout = VK_NULL_HANDLE;
     }
 
     if (mPipelineCache) {

@@ -19,3 +19,8 @@ void VisualObject::rotate(float t, float x, float y, float z)
 {
     mMatrix.rotate(t, x, y, z);
 }
+
+void VisualObject::setColor(const QVector3D &newColor)
+{
+    mColor = newColor;
+}
