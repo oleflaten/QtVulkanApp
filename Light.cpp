@@ -23,4 +23,5 @@ Light::Light()
 
     mPosition = {1.5, 1.0, 3.0};
     mMatrix.translate(mPosition.x(), mPosition.y(), mPosition.z());
+    mColor = { mLightColor[0], mLightColor[1], mLightColor[2] };
 }

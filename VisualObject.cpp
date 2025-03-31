@@ -8,6 +8,7 @@ VisualObject::VisualObject()
 void VisualObject::move(float x, float y, float z)
 {
     mMatrix.translate(x, y, z);
+    mPosition += QVector3D(x, y, z);
 }
 
 void VisualObject::scale(float s)

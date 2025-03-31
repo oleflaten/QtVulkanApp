@@ -11,6 +11,7 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
 {
     if (msaa) {
         const QList<int> counts = w->supportedSampleCounts();
+        qDebug("\n\n");
         qDebug() << "Supported sample counts:" << counts;
         for (int s = 16; s >= 4; s /= 2) {
             if (counts.contains(s)) {
@@ -19,6 +20,7 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
                 break;
             }
         }
+        qDebug("\n\n");
     }
 
     //Since the light is a special object we have only one of
@@ -28,26 +30,35 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
     mObjects.push_back((new TriangleSurface()));
     mObjects.push_back((new WorldAxis()));
     mObjects.push_back((mLight));
+    mObjects.push_back((new TriangleSurface()));
 
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
     mObjects.at(2)->setName("axis");
     mObjects.at(3)->setName("light");
+    mObjects.at(4)->setName("floor");
 
     mObjects.at(0)->setColor({1.0, 0.0, 0.3});
-    mObjects.at(1)->setColor({0.0, 1.0, 0.3});
+    mObjects.at(1)->setColor({1.0, 1.0, 1.0});
     mObjects.at(2)->setColor({1.0, 0.0, 0.3});
-    mObjects.at(3)->setColor({0.0, 0.0, 1.3});
+    mObjects.at(4)->setColor({0.0, 0.7, 0.0});
+
+    //Position some objects
+    mObjects.at(1)->scale(3);
+    mObjects.at(4)->move(-10, -1, -5);
+    mObjects.at(4)->rotate(90, 1.0, 0, 0);
+    mObjects.at(4)->scale(20);
+
 
     // **************************************
-    // Legger inn objekter i map
+	// Optional: Insert all objects into a map
     // **************************************
     //std::string navn{"navn"}; // Skal VisualObject klassen få en navn-variabel?
-    for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
-        mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
+    //for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
+    //    mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
 
 	//Inital position of the camera
-    mCamera.setPosition(QVector3D(-0.5, -0.5, -8));
+    mCamera.setPosition(QVector3D(-0.5, -1.5, -12));
 
     //Need access to our VulkanWindow so making a convenience pointer
     mVulkanWindow = dynamic_cast<VulkanWindow*>(w);
@@ -306,7 +317,6 @@ void Renderer::startNextFrame()
     mDeviceFunctions->vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPhongMaterial.pipelineLayout, 0, 1,
         &mPhongMaterial.descriptorSet, 2, frameUniOffsets);
 
-    //NEW CODE WITH UNIFORM EXAMPLE:
     setViewProjectionMatrix();   //Update the view and projection matrix in the Uniform
 
     /********************************* Our draw call!: *********************************/
@@ -336,7 +346,15 @@ void Renderer::startNextFrame()
     mDeviceFunctions->vkCmdEndRenderPass(commandBuffer);
 
     //Hardcoded!!!
-    mObjects.at(1)->rotate(1.0f, 0.0f, 0.0f, 1.0f);
+    //mObjects.at(1)->rotate(1.0f, 0.0f, 0.0f, 1.0f);
+
+    //quick hack to get a moving light
+    static float rotate{ 0.f };
+	if (true)  //Change to false to stop the light  
+    {
+        mLight->move(sinf(rotate) / 100, cosf(rotate) / 100, cosf(rotate) / 60);     //just to move the light each frame
+        rotate += 0.01f;
+    }
     
     mWindow->frameReady();
     mWindow->requestUpdate(); // render continuously, throttled by the presentation rate
@@ -390,42 +408,36 @@ void Renderer::setViewProjectionMatrix()
 {
     uint8_t* p = mUniformBufferLocation;
     // ************ Vertex shader ******************
-    memcpy(p, mCamera.viewMatrix().constData(), 64);
+	memcpy(p, mCamera.viewMatrix().constData(), 64);    //64 bytes for the view matrix
 
     QMatrix4x4 temp = mCamera.projectionMatrix();
     temp = temp * mWindow->clipCorrectionMatrix();  //Correcting for Vulkans -Y
 
     p += 64;
 	//Adding 64 bytes to the uniform buffer location to get to the projection matrix position
-    memcpy(p, temp.constData(), 64);
-
-    //Just testing some more random data to send
-    //Vertex-shader is updatex accordingly
-    float color[3] = {0.8, 0.1, 0.9};
-    p += 64;
-    memcpy(p, color, 12);
+	memcpy(p, temp.constData(), 64);	//64 bytes for the projection matrix
 
     // ************ Fragment shader ******************
-    p += 16;    // alignment is 16
+    p += 64;    // alignment is 16
     float lightPos[3] = {mLight->position().x(), mLight->position().y(), mLight->position().z()};
-    memcpy(p, lightPos, 12);
-    p += 16;    // alignment is 16
-    memcpy(p, mLight->mLightColor, 12);
-    p += 16;    // alignment is 16
+	memcpy(p, lightPos, 12);    // 12 bytes for the light position
+    p += 16;
+	memcpy(p, mLight->mLightColor, 12);	// 12 bytes for the light color
+    p += 16;
     float cameraPos[3] = {mCamera.position().x(), mCamera.position().y(), mCamera.position().z()};
-    memcpy(p, cameraPos, 12);
+	memcpy(p, cameraPos, 12);	// 12 bytes for the camera position
 
     p += 12;    // alignment is 16 but next value is only 4 so fits into this
-    memcpy(p, &mLight->mAmbientStrenght, 4);
+	memcpy(p, &mLight->mAmbientStrenght, 4);    // one float
 
     p += 4;    // only 4 up to next allignment
-    memcpy(p, &mLight->mLightStrenght, 4);
+	memcpy(p, &mLight->mLightStrenght, 4);      // one float
 
     p += 4;    // adding into this allignment block
-    memcpy(p, &mLight->mSpecularStrenght, 4);
+	memcpy(p, &mLight->mSpecularStrenght, 4);	// one float
 
     p += 4;    // adding into this allignment block
-    memcpy(p, &mLight->mSpecularExponent, 4);
+	memcpy(p, &mLight->mSpecularExponent, 4);	// one int
 
 
     /************ NB ************
