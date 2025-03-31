@@ -109,6 +109,15 @@ private:
 
     class Light* mLight{nullptr};
 
+    // Color shader
+    struct {
+        VkShaderModule vertShaderModule;
+        VkShaderModule fragShaderModule;
+        VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+        VkPipeline pipeline{VK_NULL_HANDLE};
+    } mColorMaterial;
+
+
     // Phong shader
     struct {
         VkDeviceSize vertUniSize;

@@ -163,29 +163,51 @@ void Renderer::initResources()
 
     /********************************* Create shaders *********************************/
     //Creates our actual shader modules
+
+    /*************** PhongMaterial ******************/
     mPhongMaterial.vertShaderModule = createShader(QStringLiteral(":/phong_vert.spv"));
     mPhongMaterial.fragShaderModule = createShader(QStringLiteral(":/phong_frag.spv"));
 
 	//Updated to more common way to write it:
-    VkPipelineShaderStageCreateInfo vertShaderCreateInfo{};
-	vertShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vertShaderCreateInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderCreateInfo.module = mPhongMaterial.vertShaderModule;
-	vertShaderCreateInfo.pName = "main";                // start function in shader
+    VkPipelineShaderStageCreateInfo vertShaderCreateInfoP{};
+    vertShaderCreateInfoP.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderCreateInfoP.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderCreateInfoP.module = mPhongMaterial.vertShaderModule;
+    vertShaderCreateInfoP.pName = "main";                // start function in shader
 
-    VkPipelineShaderStageCreateInfo fragShaderCreateInfo{};
-	fragShaderCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	fragShaderCreateInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderCreateInfo.module = mPhongMaterial.fragShaderModule;
-	fragShaderCreateInfo.pName = "main";                // start function in shader
+    VkPipelineShaderStageCreateInfo fragShaderCreateInfoP{};
+    fragShaderCreateInfoP.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderCreateInfoP.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderCreateInfoP.module = mPhongMaterial.fragShaderModule;
+    fragShaderCreateInfoP.pName = "main";                // start function in shader
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderCreateInfo, fragShaderCreateInfo };
+    VkPipelineShaderStageCreateInfo shaderStagesP[] = { vertShaderCreateInfoP, fragShaderCreateInfoP };
+
+    /*************** ColorMaterial ******************/
+    mColorMaterial.vertShaderModule = createShader(QStringLiteral(":/color_vert.spv"));
+    mColorMaterial.fragShaderModule = createShader(QStringLiteral(":/color_frag.spv"));
+
+    //Updated to more common way to write it:
+    VkPipelineShaderStageCreateInfo vertShaderCreateInfoC{};
+    vertShaderCreateInfoC.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderCreateInfoC.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderCreateInfoC.module = mColorMaterial.vertShaderModule;
+    vertShaderCreateInfoC.pName = "main";                // start function in shader
+
+    VkPipelineShaderStageCreateInfo fragShaderCreateInfoC{};
+    fragShaderCreateInfoC.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderCreateInfoC.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderCreateInfoC.module = mColorMaterial.fragShaderModule;
+    fragShaderCreateInfoC.pName = "main";                // start function in shader
+
+    VkPipelineShaderStageCreateInfo shaderStagesC[] = { vertShaderCreateInfoC, fragShaderCreateInfoC };
+
 
 	/*********************** Graphics pipeline ********************************/
     VkGraphicsPipelineCreateInfo pipelineInfo{};    //Will use this variable a lot in the next 100s of lines
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2; //vertex and fragment shader
-    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pStages = shaderStagesP;
     pipelineInfo.pVertexInputState = &vertexInputInfo;
 
     // The viewport and scissor will be set dynamically via vkCmdSetViewport/Scissor in setRenderPassParameters().
@@ -256,21 +278,29 @@ void Renderer::initResources()
         qFatal("Failed to create graphics pipeline: %d", result);
 
 	//Making a pipeline for drawing lines
-    mPipeline2 = mPhongMaterial.pipeline;                                    // reusing most of the settings from the first pipeline
+
+    mColorMaterial.pipeline = mPhongMaterial.pipeline;          // reusing most of the settings from the first pipeline
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;   // draw lines
     rasterization.polygonMode = VK_POLYGON_MODE_FILL;           // VK_POLYGON_MODE_LINE will make a wireframe; VK_POLYGON_MODE_FILL
     rasterization.lineWidth = 5.0f;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
-    result = mDeviceFunctions->vkCreateGraphicsPipelines(logicalDevice, mPipelineCache, 1, &pipelineInfo, nullptr, &mPipeline2);
+    pipelineInfo.pStages = shaderStagesC;
+
+    result = mDeviceFunctions->vkCreateGraphicsPipelines(logicalDevice, mPipelineCache, 1, &pipelineInfo,
+                                                         nullptr, &mColorMaterial.pipeline);
+
     if (result != VK_SUCCESS)
         qFatal("Failed to create graphics pipeline: %d", result);
-
 
 	// Destroying the shader modules, we won't need them anymore after the pipeline is created
     if (mPhongMaterial.vertShaderModule)
         mDeviceFunctions->vkDestroyShaderModule(logicalDevice, mPhongMaterial.vertShaderModule, nullptr);
     if (mPhongMaterial.fragShaderModule)
         mDeviceFunctions->vkDestroyShaderModule(logicalDevice, mPhongMaterial.fragShaderModule, nullptr);
+    if (mColorMaterial.vertShaderModule)
+        mDeviceFunctions->vkDestroyShaderModule(logicalDevice, mColorMaterial.vertShaderModule, nullptr);
+    if (mColorMaterial.fragShaderModule)
+        mDeviceFunctions->vkDestroyShaderModule(logicalDevice, mColorMaterial.fragShaderModule, nullptr);
 
 	// Create the uniform buffer
 	createUniformBuffer();
@@ -327,7 +357,7 @@ void Renderer::startNextFrame()
 		if ((*it)->getDrawType() == 0)
             mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPhongMaterial.pipeline);
 		else
-			mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline2);
+            mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mColorMaterial.pipeline);
 
         setModelMatrix((*it)->getMatrix(), (*it)->color()); // Model matrix and object color;
 
