@@ -8,6 +8,7 @@ layout(location = 0) out vec3 vColor;
 
 layout(push_constant) uniform mod {
     mat4 model;
+    vec3 objectColor;
 } uModel;
 
 layout(set = 0, binding = 0) uniform cam {
@@ -19,7 +20,13 @@ out gl_PerVertex { vec4 gl_Position; };
 
 void main()
 {
-    vColor = color;
+    //if objectcolor is not set (== black), use vertex color
+    float colorTest = uModel.objectColor.r + uModel.objectColor.g +uModel.objectColor.b;
+    if (colorTest < 0.001)
+        vColor = color;
+    //else use objectcolor
+    else
+        vColor = uModel.objectColor;
     gl_Position =   uBuffer.projection * uBuffer.view * uModel.model * vec4(position, 1.0);
 }
 

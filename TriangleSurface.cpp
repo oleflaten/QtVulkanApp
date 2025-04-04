@@ -21,6 +21,8 @@ TriangleSurface::TriangleSurface() : VisualObject()
 	mIndices.push_back(2);
 	mIndices.push_back(1);
 	mIndices.push_back(3);
+
+    drawType = 2; // 0 = fill color, 1 = line color, 2 = fill phong
 }
 
 TriangleSurface::TriangleSurface(const std::string &filename)

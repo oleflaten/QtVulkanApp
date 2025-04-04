@@ -12,5 +12,7 @@ WorldAxis::WorldAxis()
     mVertices.push_back(Vertex{ 0.f, 0.f, 100.f,     0.f, 0.f, 1.f,    0.f, 0.f });
 
     mMatrix.setToIdentity();
+
+	drawType = 1; // 0 = fill color, 1 = line color, 2 = fill phong
 }
 

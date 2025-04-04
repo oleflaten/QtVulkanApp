@@ -44,13 +44,13 @@ protected:
     std::string mName;
 
 	QVector3D mPosition{ 0.0f, 0.0f, 0.0f };
-    QVector3D mColor{ 0.5f, 0.f, 0.5f };
+    QVector3D mColor{ 0.0f, 0.f, 0.0f };
 
 	BufferHandle mVertexBuffer;
 	BufferHandle mIndexBuffer;
     //VkPrimitiveTopology mTopology{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST }; //not used
 
-    int drawType{ 0 }; // 0 = fill, 1 = line
+    int drawType{ 0 }; // 0 = fill color, 1 = line color, 2 = fill phong
 };
 
 #endif // VISUALOBJECT_H

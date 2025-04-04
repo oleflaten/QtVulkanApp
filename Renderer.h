@@ -109,6 +109,14 @@ private:
 
     class Light* mLight{nullptr};
 
+    // Line Color shader
+    struct {
+        VkShaderModule vertShaderModule;
+        VkShaderModule fragShaderModule;
+        VkPipelineLayout pipelineLayout{ VK_NULL_HANDLE };
+        VkPipeline pipeline{ VK_NULL_HANDLE };
+    } mLineMaterial;
+
     // Color shader
     struct {
         VkShaderModule vertShaderModule;
@@ -116,7 +124,6 @@ private:
         VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
         VkPipeline pipeline{VK_NULL_HANDLE};
     } mColorMaterial;
-
 
     // Phong shader
     struct {

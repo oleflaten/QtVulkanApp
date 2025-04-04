@@ -26,11 +26,11 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
     //Since the light is a special object we have only one of
     mLight = new Light();
 
-    mObjects.push_back(new Triangle());
-    mObjects.push_back((new TriangleSurface()));
-    mObjects.push_back((new WorldAxis()));
-    mObjects.push_back((mLight));
-    mObjects.push_back((new TriangleSurface()));
+    mObjects.push_back(new Triangle()); // 0 
+	mObjects.push_back((new TriangleSurface())); // 1
+	mObjects.push_back((new WorldAxis())); // 2
+	mObjects.push_back((mLight)); // 3
+	mObjects.push_back((new TriangleSurface())); // 4
 
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
@@ -40,7 +40,6 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
 
     mObjects.at(0)->setColor({1.0, 0.0, 0.3});
     mObjects.at(1)->setColor({1.0, 1.0, 1.0});
-    mObjects.at(2)->setColor({1.0, 0.0, 0.3});
     mObjects.at(4)->setColor({0.0, 0.7, 0.0});
 
     //Position some objects
@@ -275,11 +274,11 @@ void Renderer::initResources()
     result = mDeviceFunctions->vkCreateGraphicsPipelines(logicalDevice, mPipelineCache, 1, &pipelineInfo,
                                                          nullptr, &mPhongMaterial.pipeline);
     if (result != VK_SUCCESS)
-        qFatal("Failed to create graphics pipeline: %d", result);
+        qFatal("Failed to create phong graphics pipeline: %d", result);
 
 	//Making a pipeline for drawing lines
 
-    mColorMaterial.pipeline = mPhongMaterial.pipeline;          // reusing most of the settings from the first pipeline
+    mLineMaterial.pipeline = mPhongMaterial.pipeline;          // reusing most of the settings from the first pipeline
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;   // draw lines
     rasterization.polygonMode = VK_POLYGON_MODE_FILL;           // VK_POLYGON_MODE_LINE will make a wireframe; VK_POLYGON_MODE_FILL
     rasterization.lineWidth = 5.0f;
@@ -287,10 +286,23 @@ void Renderer::initResources()
     pipelineInfo.pStages = shaderStagesC;
 
     result = mDeviceFunctions->vkCreateGraphicsPipelines(logicalDevice, mPipelineCache, 1, &pipelineInfo,
-                                                         nullptr, &mColorMaterial.pipeline);
+                                                         nullptr, &mLineMaterial.pipeline);
 
     if (result != VK_SUCCESS)
-        qFatal("Failed to create graphics pipeline: %d", result);
+        qFatal("Failed to create line graphics pipeline: %d", result);
+
+	//Making a pipeline for drawing colored triangles
+
+    mColorMaterial.pipeline = mLineMaterial.pipeline;          // reusing most of the settings from the first pipeline
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;   // draw lines
+    rasterization.polygonMode = VK_POLYGON_MODE_FILL;           // VK_POLYGON_MODE_LINE will make a wireframe; VK_POLYGON_MODE_FILL
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+
+    result = mDeviceFunctions->vkCreateGraphicsPipelines(logicalDevice, mPipelineCache, 1, &pipelineInfo,
+        nullptr, &mColorMaterial.pipeline);
+
+    if (result != VK_SUCCESS)
+        qFatal("Failed to create color graphics pipeline: %d", result);
 
 	// Destroying the shader modules, we won't need them anymore after the pipeline is created
     if (mPhongMaterial.vertShaderModule)
@@ -351,13 +363,15 @@ void Renderer::startNextFrame()
 
     /********************************* Our draw call!: *********************************/
     VkDeviceSize vbOffset{ 0 };     //Offsets into buffer being bound
+    
+    //    0 = fill color, 1 = line color, 2 = fill phong
+    
+    mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mColorMaterial.pipeline);
     for (std::vector<VisualObject*>::iterator it=mObjects.begin(); it!=mObjects.end(); it++)
     {
         //Draw type
-		if ((*it)->getDrawType() == 0)
-            mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPhongMaterial.pipeline);
-		else
-            mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mColorMaterial.pipeline);
+		if ((*it)->getDrawType() != 0)
+            continue;
 
         setModelMatrix((*it)->getMatrix(), (*it)->color()); // Model matrix and object color;
 
@@ -371,6 +385,49 @@ void Renderer::startNextFrame()
 		else   //No index buffer - use regular draw
 			mDeviceFunctions->vkCmdDraw(commandBuffer, (*it)->getVertices().size(), 1, 0, 0);   
     }
+
+    mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mLineMaterial.pipeline);
+    for (std::vector<VisualObject*>::iterator it = mObjects.begin(); it != mObjects.end(); it++)
+    {
+        //Draw type
+        if ((*it)->getDrawType() != 1)
+            continue;
+
+        setModelMatrix((*it)->getMatrix(), (*it)->color()); // Model matrix and object color;
+
+        mDeviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(*it)->getVBuffer(), &vbOffset);
+        //Check if we have an index buffer - if so, use Indexed draw
+        if ((*it)->getIndices().size() > 0)
+        {
+            mDeviceFunctions->vkCmdBindIndexBuffer(commandBuffer, (*it)->getIBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            mDeviceFunctions->vkCmdDrawIndexed(commandBuffer, (*it)->getIndices().size(), 1, 0, 0, 0); //size == number of indices
+        }
+        else   //No index buffer - use regular draw
+            mDeviceFunctions->vkCmdDraw(commandBuffer, (*it)->getVertices().size(), 1, 0, 0);
+    }
+
+
+    mDeviceFunctions->vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPhongMaterial.pipeline);
+    for (std::vector<VisualObject*>::iterator it=mObjects.begin(); it!=mObjects.end(); it++)
+    {
+        //Draw type
+        if ((*it)->getDrawType() != 2)
+            continue;
+
+        setModelMatrix((*it)->getMatrix(), (*it)->color()); // Model matrix and object color;
+
+        mDeviceFunctions->vkCmdBindVertexBuffers(commandBuffer, 0, 1, &(*it)->getVBuffer(), &vbOffset);
+        //Check if we have an index buffer - if so, use Indexed draw
+        if ((*it)->getIndices().size() > 0)
+        {
+            mDeviceFunctions->vkCmdBindIndexBuffer(commandBuffer, (*it)->getIBuffer(), 0, VK_INDEX_TYPE_UINT32);
+            mDeviceFunctions->vkCmdDrawIndexed(commandBuffer, (*it)->getIndices().size(), 1, 0, 0, 0); //size == number of indices
+        }
+        else   //No index buffer - use regular draw
+            mDeviceFunctions->vkCmdDraw(commandBuffer, (*it)->getVertices().size(), 1, 0, 0);
+    }
+
+
     /***************************************/
 
     mDeviceFunctions->vkCmdEndRenderPass(commandBuffer);
