@@ -81,14 +81,14 @@ void Renderer::initResources()
     createDescriptorSetLayouts();
 
     /********************************* Vertex layout: *********************************/
-	VkVertexInputBindingDescription vertexBindingDesc{};    //Updated to a more common way to write it
+	VkVertexInputBindingDescription vertexBindingDesc{};
 	vertexBindingDesc.binding = 0;
 	vertexBindingDesc.stride = sizeof(Vertex);
 	vertexBindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
     /********************************* Shader bindings: *********************************/
     //Descritpion of the attributes used for vertices in the shader
-	VkVertexInputAttributeDescription vertexAttrDesc[3];    //Updated to a more common way to write it
+	VkVertexInputAttributeDescription vertexAttrDesc[3];
 	vertexAttrDesc[0].location = 0;     //position
     vertexAttrDesc[0].binding = 0;
 	vertexAttrDesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -462,54 +462,7 @@ void Renderer::setRenderPassParameters(VkCommandBuffer commandBuffer)
     mDeviceFunctions->vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
 
-// Dag 240125
-// This function contains some of the body of our former Renderer::initResources() function
-// If we want to have more objects, we need to initialize buffers for each of them
-// This version is not a version with encapsulation
-// We use the VisualObject members mBuffer and mBufferMemory
-void Renderer::createBuffer(VkDevice logicalDevice, const VkDeviceSize uniformAlignment,
-                                VisualObject* visualObject, VkBufferUsageFlags usage)
-{
-    //Gets the size of the mesh - aligned to the uniform alignment
-    VkDeviceSize vertexAllocSize = aligned(visualObject->getVertices().size() * sizeof(Vertex), uniformAlignment);
-
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO; // Set the structure type
-    bufferInfo.size = vertexAllocSize; //One vertex buffer (we don't use Uniform buffer in this example)
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT; // Set the usage vertex buffer (not using Uniform buffer in this example)
-
-    VkResult err = mDeviceFunctions->vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &visualObject->getVBuffer());
-    if (err != VK_SUCCESS)
-        qFatal("Failed to create buffer: %d", err);
-
-    VkMemoryRequirements memReq;
-    mDeviceFunctions->vkGetBufferMemoryRequirements(logicalDevice, visualObject->getVBuffer(), &memReq);
-
-    VkMemoryAllocateInfo memAllocInfo{};
-    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memAllocInfo.pNext = nullptr;
-	memAllocInfo.allocationSize = memReq.size;
-	memAllocInfo.memoryTypeIndex = mWindow->hostVisibleMemoryIndex();
-
-    err = mDeviceFunctions->vkAllocateMemory(logicalDevice, &memAllocInfo, nullptr, &visualObject->getVBufferMemory());
-    if (err != VK_SUCCESS)
-        qFatal("Failed to allocate memory: %d", err);
-
-    err = mDeviceFunctions->vkBindBufferMemory(logicalDevice, visualObject->getVBuffer(), visualObject->getVBufferMemory(), 0);
-    if (err != VK_SUCCESS)
-        qFatal("Failed to bind buffer memory: %d", err);
-
-    void* p{nullptr};
-    err = mDeviceFunctions->vkMapMemory(logicalDevice, visualObject->getVBufferMemory(), 0, memReq.size, 0, reinterpret_cast<void **>(&p));
-    if (err != VK_SUCCESS)
-        qFatal("Failed to map memory: %d", err);
-
-    memcpy(p, visualObject->getVertices().data(), visualObject->getVertices().size()*sizeof(Vertex));
-
-    mDeviceFunctions->vkUnmapMemory(logicalDevice, visualObject->getVBufferMemory());
-}
-
-//Very similar to createBuffer, but here we find and set the memory type explicitly
+//Very similar to the earlier used createBuffer(), but here we find and set the memory type explicitly
 //Also the generation of the buffer is in a separate function
 //and copy data to GPU read only memory
 void Renderer::createVertexBuffer(const VkDeviceSize uniformAlignment, VisualObject* visualObject)

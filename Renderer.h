@@ -83,11 +83,8 @@ private:
 	std::vector<VisualObject*> mObjects;    //All objects in the program  
     std::unordered_map<std::string, VisualObject*> mMap;    // alternativ container
 
-    void createBuffer(VkDevice logicalDevice,
-                      const VkDeviceSize uniAlign, VisualObject* visualObject,
-                      VkBufferUsageFlags usage=VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-
 	//Start of Uniforms and DescriptorSets
+    BufferHandle createGeneralBuffer(const VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
 	void createVertexBuffer(const VkDeviceSize uniformAlignment, VisualObject* visualObject);
 	void createIndexBuffer(const VkDeviceSize uniformAlignment, VisualObject* visualObject);
     void createUniformBuffer();
@@ -112,8 +109,6 @@ private:
     TextureHandle mTextureHandle{};
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags requiredProperties);
-
-	BufferHandle createGeneralBuffer(const VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
 
     Camera mCamera;
     class VulkanWindow* mVulkanWindow{ nullptr };
