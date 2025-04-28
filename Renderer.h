@@ -72,7 +72,6 @@ protected:
     VkPipelineCache mPipelineCache{ VK_NULL_HANDLE };
     VkPipelineLayout mPipelineLayout{ VK_NULL_HANDLE };
     VkPipeline mPipeline1{ VK_NULL_HANDLE };
-    VkPipeline mPipeline2{ VK_NULL_HANDLE };
 
     VkQueue mGraphicsQueue{ VK_NULL_HANDLE };
 
@@ -92,7 +91,7 @@ private:
     void destroyBuffer(BufferHandle handle);
 
 	void createTextureSampler();
-    TextureHandle createTexture(const char* filename);
+    TextureHandle createTexture(const std::string filename);
 	TextureHandle createImage(int width, int height, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkFormat format);
 	void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, int width, int height);
@@ -101,10 +100,8 @@ private:
 	void destroyTexture(TextureHandle& textureHandle);
 
     //Texture variables
-
     VkSurfaceFormatKHR mSurfaceFormat{};
-
-    TextureHandle mTextureHandle{};
+    TextureHandle mTextureHandle;
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags requiredProperties);
 

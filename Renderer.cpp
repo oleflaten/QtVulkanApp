@@ -26,20 +26,18 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
         }
     }
 
-	std::string path = "../../Assets/";
-
     mObjects.push_back(new Triangle());
     mObjects.push_back((new TriangleSurface()));
     mObjects.push_back((new WorldAxis()));
 	mObjects.push_back(new HeightMap());
-    mObjects.push_back(new ObjMesh(path + "suzanne.obj"));
+    mObjects.push_back(new ObjMesh(assetPath + "suzanne.obj"));
     // Dag 030225
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
     mObjects.at(2)->setName("axis");
 	mObjects.at(3)->setName("terrain");
     mObjects.at(4)->setName("suzanne");
-    static_cast<HeightMap*>(mObjects.at(3))->makeTerrain(path + "Hund.bmp");
+    static_cast<HeightMap*>(mObjects.at(3))->makeTerrain(assetPath + "Heightmap.jpg");
 
     // **************************************
     // Objects in optional map
@@ -286,7 +284,8 @@ void Renderer::initResources()
     // Create the texture sampler
     createTextureSampler();
 
-    mTextureHandle = createTexture("../../Assets/Hund.bmp"); //Heightmap.jpg HundA.bmp
+    mTextureHandle = createTexture((assetPath + "Hund.bmp")); //Heightmap.jpg HundA.bmp
+    //mTextureHandle = createTexture((assetPath + "green-grass-texture.jpg").c_str());
 
     // getVulkanHWInfo(); // if you want to get info about the Vulkan hardware
 }
@@ -296,16 +295,10 @@ void Renderer::initSwapChainResources()
 {
     qDebug("\n ***************************** initSwapChainResources ******************************************* \n");
 
-    // Projection matrix - how the scene will be projected into the render window
-	// has to be updated when the window is resized
-    // mProjectionMatrix.setToIdentity();
-
-    //can be used to correct for coordinate system differences between OpenGL and Vulkan:
-    //QMatrix4x4 QVulkanWindow::clipCorrectionMatrix()
-
     //find the size of the window
     const QSize sz = mWindow->swapChainImageSize();
 
+    //This sets the projection matrix - also when resizing the window:
     mCamera.perspective(45.0f, sz.width() / (float) sz.height(), 0.01f, 500.0f);
 }
 
@@ -942,7 +935,7 @@ void Renderer::createTextureSampler()
 		qFatal("Failed to create texture sampler: %d", err);
 }
 
-TextureHandle Renderer::createTexture(const char* filename)
+TextureHandle Renderer::createTexture(const std::string filename)
 {
     int texWidth, texHeight, texChannels;
     VkDeviceSize bufferSize{};
@@ -1001,25 +994,6 @@ TextureHandle Renderer::createTexture(const char* filename)
         mDeviceFunctions->vkMapMemory(mWindow->device(), stagingBuffer.mBufferMemory, 0, bufferSize, 0, &data);
         memcpy(data, pixelData, bufferSize);
     }
-
-    /***************** Height Map test!!! ***************/
-    //Test to look at the pixel data values in the image
-	//Jumping through the pixel data by 1200 bytes at a time to get a sample of the data
-	//We see that in a grey scale image, the R, G, B values are the same! The A value is 255
-    unsigned char temp{};
-    for (int i = 0; i < texWidth * texHeight; i += 1200)
-    {
-        temp = pixelData[i];
-        qDebug() << "Pixel " << i << "r " << temp;
-        temp = pixelData[i + 1];
-        qDebug() << "Pixel " << i << "g " << temp;
-        temp = pixelData[i + 2];
-        qDebug() << "Pixel " << i << "b " << temp;
-        temp = pixelData[i + 3];
-        qDebug() << "Pixel " << i << "a " << temp;
-    }
-    /*****************                    ***************/
-
 
 	mDeviceFunctions->vkUnmapMemory(mWindow->device(), stagingBuffer.mBufferMemory);
                                          

@@ -18,7 +18,6 @@ void HeightMap::makeTerrain(std::string heightMapImage)
 	//Make the terrain from the pixel data
 	makeTerrain(pixelData, mWidth, mHeight);
 	stbi_image_free(pixelData);
-
 }
 
 //Function that makes a terrain grid from a heightmap, using the values in the heightmap as height.
@@ -30,11 +29,11 @@ void HeightMap::makeTerrain(unsigned char* textureData, int widthIn, int heightI
     //Default normal pointing straight up - should be calculated correctly for lights to work!!!
     float normal[3]{0.f, 1.f, 0.f};
 
-    //How many meters between each vertex in both x and z direction
+    //How many meters(units) between each vertex in both x and z direction
     //This should be sent in as a parameter!
     float horisontalSpacing{.2f};
 
-    //Scaling the height read from the heightmap. 0 -> 255 meters if this is set to 1
+    //Scaling the height read from the heightmap. 0 -> 255 meters(units) if this is set to 1
     //This should be sent in as a parameter!
     float heightSpacing{.02f};
 
@@ -42,7 +41,7 @@ void HeightMap::makeTerrain(unsigned char* textureData, int widthIn, int heightI
     //Moves the terrain mesh up or down
     //Because of Barycentric calculations, we want the terrain to be in World coordinates!
 	//So we don't want to move the terrain up or down in the Y axis after it is made
-    float heightPlacement{-10.f};
+    float heightPlacement{-5.f};
 
     //Getting the scale of the heightmap
     //Using depth as the name of texture height, to not confuse with terrain height
@@ -93,7 +92,6 @@ void HeightMap::makeTerrain(unsigned char* textureData, int widthIn, int heightI
         }
     }
 
- 
 	//Calculating the normals for the mesh
     //Function not made yet:
     //calculateHeighMapNormals();

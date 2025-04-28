@@ -3,6 +3,7 @@
 
 #include <QVulkanFunctions>
 #include <QMatrix4x4>
+#include <string>
 
 //Utility function for alignment:
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign)
@@ -24,5 +25,7 @@ struct TextureHandle
 	VkImageView mImageView{ VK_NULL_HANDLE };
 	VkDescriptorSet mTextureDescriptorSet{ VK_NULL_HANDLE };
 };
+
+static const std::string assetPath = "../../../Assets/";
 
 #endif // UTILITIES_H
