@@ -26,6 +26,6 @@ struct TextureHandle
 	VkDescriptorSet mTextureDescriptorSet{ VK_NULL_HANDLE };
 };
 
-static const std::string assetPath = "../../../Assets/";
+static const std::string assetPath = "../../Assets/";
 
 #endif // UTILITIES_H
