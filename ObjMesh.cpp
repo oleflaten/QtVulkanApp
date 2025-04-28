@@ -20,12 +20,10 @@ ObjMesh::ObjMesh(const std::string& filename)
 
 bool ObjMesh::readObjFile(const std::string& filename)
 {
-    std::string tempName{};
 
-    tempName = "../../Meshes/" + filename;
-    qDebug() << "Reading " << tempName.c_str();
+    qDebug() << "Reading " << filename.c_str();
     std::ifstream fileIn;
-    fileIn.open(tempName, std::ifstream::in);
+    fileIn.open(filename, std::ifstream::in);
     if (!fileIn)
     {
         qDebug() << "ERROR: Could not open file for reading: " << filename.c_str();

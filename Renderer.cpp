@@ -26,18 +26,20 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
         }
     }
 
+	std::string path = "../../../Assets/";
+
     mObjects.push_back(new Triangle());
     mObjects.push_back((new TriangleSurface()));
     mObjects.push_back((new WorldAxis()));
 	mObjects.push_back(new HeightMap());
-    mObjects.push_back(new ObjMesh("Suzanne.obj"));
+    //mObjects.push_back(new ObjMesh(path + "suzanne.obj"));
     // Dag 030225
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
     mObjects.at(2)->setName("axis");
 	mObjects.at(3)->setName("terrain");
-    mObjects.at(4)->setName("suzanne");
-    static_cast<HeightMap*>(mObjects.at(3))->makeTerrain("../../Assets/Hund.bmp");
+    //mObjects.at(4)->setName("suzanne");
+    static_cast<HeightMap*>(mObjects.at(3))->makeTerrain(path + "Hund.bmp");
 
     // **************************************
     // Objects in optional map
