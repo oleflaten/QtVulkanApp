@@ -30,7 +30,7 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
     mObjects.push_back((new TriangleSurface()));
     mObjects.push_back((new WorldAxis()));
 	mObjects.push_back(new HeightMap());
-    mObjects.push_back(new ObjMesh());
+    mObjects.push_back(new ObjMesh("Suzanne.obj"));
     // Dag 030225
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
