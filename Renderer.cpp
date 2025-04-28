@@ -8,6 +8,7 @@
 #include "TriangleSurface.h"
 #include "HeightMap.h"
 #include "stb_image.h"
+#include "ObjMesh.h"
 
 /*** Renderer class ***/
 Renderer::Renderer(QVulkanWindow *w, bool msaa)
@@ -24,24 +25,25 @@ Renderer::Renderer(QVulkanWindow *w, bool msaa)
             }
         }
     }
-    // Dag 230125
+
     mObjects.push_back(new Triangle());
     mObjects.push_back((new TriangleSurface()));
     mObjects.push_back((new WorldAxis()));
 	mObjects.push_back(new HeightMap());
+    mObjects.push_back(new ObjMesh());
     // Dag 030225
     mObjects.at(0)->setName("tri");
     mObjects.at(1)->setName("quad");
     mObjects.at(2)->setName("axis");
 	mObjects.at(3)->setName("terrain");
+    mObjects.at(4)->setName("suzanne");
     static_cast<HeightMap*>(mObjects.at(3))->makeTerrain("../../Assets/Hund.bmp");
 
     // **************************************
-    // Legger inn objekter i map
+    // Objects in optional map
     // **************************************
-    //std::string navn{"navn"}; // Skal VisualObject klassen få en navn-variabel?
-    // for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
-    //     mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
+    for (auto it=mObjects.begin(); it!=mObjects.end(); it++)
+        mMap.insert(std::pair<std::string, VisualObject*>{(*it)->getName(),*it});
 
 	//Inital position of the camera
     mCamera.setPosition(QVector3D(-0.5, -0.5, -8));
@@ -76,9 +78,6 @@ void Renderer::initResources()
 		if ((*it)->getIndices().size() > 0) //If object has indices
 			createIndexBuffer(uniAlign, *it);
     }
-
-    //DescriptorSets must be made before the Pipelines
-    createDescriptorSetLayouts();
 
     /********************************* Vertex layout: *********************************/
 	VkVertexInputBindingDescription vertexBindingDesc{};
@@ -808,6 +807,8 @@ void Renderer::releaseResources()
 			BufferHandle handle { (*it)->getVBufferMemory(), (*it)->getVBuffer() };
 			destroyBuffer(handle);
             (*it)->getVBuffer() = VK_NULL_HANDLE;
+            (*it)->getVBufferMemory() = VK_NULL_HANDLE;
+
         }
         if ((*it)->getIBuffer()) {
             BufferHandle handle{ (*it)->getIBufferMemory(), (*it)->getIBuffer() };
@@ -837,6 +838,7 @@ void Renderer::releaseResources()
 }
 
 //Helper function to find the memory type - Qt has this built in, but it is hidden
+//This is the explicit version
 uint32_t Renderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags requiredProperties)
 {
     VkPhysicalDeviceMemoryProperties memoryProperties;

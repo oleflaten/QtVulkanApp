@@ -18,3 +18,15 @@ std::istream& operator>> (std::istream& is, Vertex& v) {
     is >> dum >> v.u >> dum2 >> v.v >> dum3;
     return is;
 }
+
+Vertex::Vertex(QVector3D pos, QVector3D normal, QVector2D uv)
+{
+	x = pos.x();
+	y = pos.y();
+	z = pos.z();
+	r = normal.x();
+	g = normal.y();
+	b = normal.z();
+	u = uv.x();
+	v = uv.y();
+}

@@ -57,9 +57,6 @@ protected:
     //Vulkan resources:
     QVulkanWindow* mWindow{ nullptr };
     QVulkanDeviceFunctions* mDeviceFunctions{ nullptr };
-
-    VkDeviceMemory mBufferMemory{ VK_NULL_HANDLE };
-    VkBuffer mBuffer{ VK_NULL_HANDLE };
  
     //For Uniform buffers
     VkDescriptorPool mDescriptorPool{ VK_NULL_HANDLE };
@@ -70,7 +67,8 @@ protected:
     VkDescriptorPool mTextureDescriptorPool{ VK_NULL_HANDLE };
     VkDescriptorSetLayout mTextureDescriptorSetLayout{ VK_NULL_HANDLE };
 	VkSampler mTextureSampler{ VK_NULL_HANDLE };
- 
+
+    //From Obj branch:
     VkPipelineCache mPipelineCache{ VK_NULL_HANDLE };
     VkPipelineLayout mPipelineLayout{ VK_NULL_HANDLE };
     VkPipeline mPipeline1{ VK_NULL_HANDLE };

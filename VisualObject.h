@@ -23,6 +23,7 @@ public:
     inline void setVBuffer(VkBuffer bufferIn) { mVertexBuffer.mBuffer = bufferIn; }
     inline void setVBufferMemory(VkDeviceMemory bufferMemoryIn) { mVertexBuffer.mBufferMemory = bufferMemoryIn; }
     inline VkBuffer& getIBuffer() { return mIndexBuffer.mBuffer; }
+    inline VkDeviceMemory& getIBufferMemory() { return mIndexBuffer.mBufferMemory; }
     inline void setIBuffer(VkBuffer bufferIn) { mIndexBuffer.mBuffer = bufferIn; }
     inline void setIBufferMemory(VkDeviceMemory bufferMemoryIn) { mIndexBuffer.mBufferMemory = bufferMemoryIn; }
     inline void setName(std::string name) { mName = name; }
