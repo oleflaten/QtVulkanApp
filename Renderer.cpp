@@ -112,21 +112,16 @@ void Renderer::initResources()
 
     // Pipeline layout
     // Set up the push constant info
-    VkPushConstantRange pushConstantRange[2]{};    //Updated to more common way to write it
-    pushConstantRange[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushConstantRange[0].offset = 0;
-    pushConstantRange[0].size = 16 * sizeof(float); // 16 floats for the model matrix
-
-    pushConstantRange[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushConstantRange[1].offset = 16 * sizeof(float);             //The color comes after the 16 floats of the matrix
-    pushConstantRange[1].size = 3 * sizeof(float); // 3 floats for the color
-
+    VkPushConstantRange pushConstantRange{};    //Updated to more common way to write it
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushConstantRange.offset = 0;
+	pushConstantRange.size = 19 * sizeof(float); // 16 floats for the model matrix, 3 for the color
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pushConstantRangeCount = 2;                  // sizeof(pcr) / sizeof(pcr[0]);
-    pipelineLayoutInfo.pPushConstantRanges = pushConstantRange;     // OEF: PushConstants update
+    pipelineLayoutInfo.pushConstantRangeCount = 1;                  // sizeof(pcr) / sizeof(pcr[0]);
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;     // OEF: PushConstants update
     result = mDeviceFunctions->vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout);
     if (result != VK_SUCCESS)
         qFatal("Failed to create pipeline layout: %d", result);
