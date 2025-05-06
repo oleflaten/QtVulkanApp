@@ -899,7 +899,7 @@ void Renderer::endTransientCommandBuffer(VkCommandBuffer commandBuffer)
 
 	//This is the way to submit a command buffer in Vulkan
     mDeviceFunctions->vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    //mDeviceFunctions->vkQueueWaitIdle(mGraphicsQueue);
+    mDeviceFunctions->vkQueueWaitIdle(mGraphicsQueue);
 	mDeviceFunctions->vkFreeCommandBuffers(mWindow->device(), mWindow->graphicsCommandPool(), 1, &commandBuffer);
 }
 
