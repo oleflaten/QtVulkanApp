@@ -19,3 +19,12 @@ void VisualObject::rotate(float t, float x, float y, float z)
 {
     mMatrix.rotate(t, x, y, z);
 }
+
+QVector3D VisualObject::getPosition()
+{
+    float x = mMatrix(0, 3); // Position in the x-axis
+    float y = mMatrix(1, 3); // Position in the y-axis
+    float z = mMatrix(2, 3); // Position in the z-axis
+    return QVector3D(x, y, z);
+}
+

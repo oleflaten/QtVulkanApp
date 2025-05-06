@@ -107,6 +107,10 @@ void VulkanWindow::keyPressEvent(QKeyEvent *event)
     {
         mInput.RIGHT = true;
     }
+    if(event->key() == Qt::Key_Space)
+    {
+        mInput.SPACE = true;
+    }
 }
 
 void VulkanWindow::keyReleaseEvent(QKeyEvent *event)
@@ -156,6 +160,10 @@ void VulkanWindow::keyReleaseEvent(QKeyEvent *event)
     if(event->key() == Qt::Key_Right)
     {
         mInput.RIGHT = false;
+    }
+    if(event->key() == Qt::Key_Space)
+    {
+        mInput.SPACE = false;
     }
 }
 

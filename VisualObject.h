@@ -32,6 +32,8 @@ public:
 	inline std::vector<Vertex> getVertices() const { return mVertices; }
 	inline std::vector<uint32_t> getIndices() const { return mIndices; }
 
+    QVector3D getPosition();
+
 protected:
     std::vector<Vertex> mVertices;
     std::vector<uint32_t> mIndices;
