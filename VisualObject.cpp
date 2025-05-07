@@ -28,3 +28,9 @@ QVector3D VisualObject::getPosition()
     return QVector3D(x, y, z);
 }
 
+void VisualObject::setPosition(float x, float y, float z)
+{
+    mMatrix(0, 3) = x; // Position in the x-axis
+    mMatrix(1, 3) = y; // Position in the y-axis
+    mMatrix(2, 3) = z; // Position in the z-axis
+}
